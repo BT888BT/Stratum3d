@@ -48,7 +48,11 @@ export default async function AdminOrdersPage() {
             >
               <div className="truncate">{order.id.slice(0, 8)}</div>
               <div className="truncate">{order.customer_name}</div>
-              <div className="capitalize">{order.status}</div>
+              <div>
+                <span className="rounded-full border border-neutral-700 px-3 py-1 text-xs uppercase tracking-wide">
+                  {order.status}
+                </span>
+              </div>
               <div>{formatAud(order.total_cents)}</div>
               <div>{new Date(order.created_at).toLocaleString("en-AU")}</div>
               <div>

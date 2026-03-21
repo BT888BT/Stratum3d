@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatAud } from "@/lib/utils";
 import { notFound } from "next/navigation";
+import OrderStatusActions from "@/components/admin/order-status-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -30,52 +31,62 @@ export default async function AdminOrderDetailPage({
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
+        <Card title="Actions">
+          <OrderStatusActions orderId={order.id} />
+        </Card>
+
         <Card title="Customer">
-          <Detail label="Name" value={order.customer_name} />
-          <Detail label="Email" value={order.email} />
-          <Detail label="Phone" value={order.phone || "-"} />
-          <Detail label="Status" value={order.status} />
+          <div className="space-y-3">
+            <Detail label="Name" value={order.customer_name} />
+            <Detail label="Email" value={order.email} />
+            <Detail label="Phone" value={order.phone || "-"} />
+            <Detail label="Status" value={order.status} />
+          </div>
         </Card>
 
         <Card title="Totals">
-          <Detail label="Subtotal" value={formatAud(order.subtotal_cents)} />
-          <Detail label="GST" value={formatAud(order.gst_cents)} />
-          <Detail label="Shipping" value={formatAud(order.shipping_cents)} />
-          <Detail label="Total" value={formatAud(order.total_cents)} />
+          <div className="space-y-3">
+            <Detail label="Subtotal" value={formatAud(order.subtotal_cents)} />
+            <Detail label="GST" value={formatAud(order.gst_cents)} />
+            <Detail label="Shipping" value={formatAud(order.shipping_cents)} />
+            <Detail label="Total" value={formatAud(order.total_cents)} />
+          </div>
         </Card>
 
         <Card title="Quote inputs">
-          <Detail label="Material" value={quote?.material || "-"} />
-          <Detail label="Colour" value={quote?.colour || "-"} />
-          <Detail
-            label="Layer height"
-            value={quote?.layer_height_mm ? `${quote.layer_height_mm} mm` : "-"}
-          />
-          <Detail
-            label="Infill"
-            value={
-              typeof quote?.infill_percent === "number"
-                ? `${quote.infill_percent}%`
-                : "-"
-            }
-          />
-          <Detail label="Quantity" value={String(quote?.quantity ?? "-")} />
-          <Detail
-            label="Estimated volume"
-            value={
-              quote?.estimated_volume_cm3
-                ? `${quote.estimated_volume_cm3} cm³`
-                : "-"
-            }
-          />
-          <Detail
-            label="Estimated print time"
-            value={
-              quote?.estimated_print_time_minutes
-                ? `${quote.estimated_print_time_minutes} min`
-                : "-"
-            }
-          />
+          <div className="space-y-3">
+            <Detail label="Material" value={quote?.material || "-"} />
+            <Detail label="Colour" value={quote?.colour || "-"} />
+            <Detail
+              label="Layer height"
+              value={quote?.layer_height_mm ? `${quote.layer_height_mm} mm` : "-"}
+            />
+            <Detail
+              label="Infill"
+              value={
+                typeof quote?.infill_percent === "number"
+                  ? `${quote.infill_percent}%`
+                  : "-"
+              }
+            />
+            <Detail label="Quantity" value={String(quote?.quantity ?? "-")} />
+            <Detail
+              label="Estimated volume"
+              value={
+                quote?.estimated_volume_cm3
+                  ? `${quote.estimated_volume_cm3} cm³`
+                  : "-"
+              }
+            />
+            <Detail
+              label="Estimated print time"
+              value={
+                quote?.estimated_print_time_minutes
+                  ? `${quote.estimated_print_time_minutes} min`
+                  : "-"
+              }
+            />
+          </div>
         </Card>
 
         <Card title="Files">
@@ -115,7 +126,7 @@ function Card({
   return (
     <div className="rounded-3xl border border-neutral-800 bg-neutral-900 p-6">
       <h2 className="text-xl font-semibold">{title}</h2>
-      <div className="mt-4 space-y-3">{children}</div>
+      <div className="mt-4">{children}</div>
     </div>
   );
 }

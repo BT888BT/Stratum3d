@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { quoteInputSchema, type QuoteInput } from "@/lib/validation";
+import {
+  quoteInputSchema,
+  type QuoteInput,
+  type QuoteInputParsed
+} from "@/lib/validation";
 import { formatAud } from "@/lib/utils";
 
 type QuoteApiResponse = {
@@ -23,24 +27,27 @@ export default function QuoteForm() {
   const [loadingQuote, setLoadingQuote] = useState(false);
   const [loadingCheckout, setLoadingCheckout] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors }
-  } = useForm<QuoteInput>({
-    resolver: zodResolver(quoteInputSchema),
-    defaultValues: {
-      material: "PLA",
-      colour: "Black",
-      quantity: 1,
-      layerHeightMm: 0.2,
-      infillPercent: 20,
-      approxXmm: 100,
-      approxYmm: 100,
-      approxZmm: 100,
-      shippingMethod: "pickup"
-    }
-  });
+const {
+  register,
+  handleSubmit,
+  formState: { errors }
+} = useForm<QuoteInput, unknown, QuoteInputParsed>({
+  resolver: zodResolver(quoteInputSchema),
+  defaultValues: {
+    customerName: "",
+    email: "",
+    phone: "",
+    material: "PLA",
+    colour: "Black",
+    quantity: 1,
+    layerHeightMm: 0.2,
+    infillPercent: 20,
+    approxXmm: 100,
+    approxYmm: 100,
+    approxZmm: 100,
+    shippingMethod: "pickup"
+  }
+});
 
   async function onSubmit(values: QuoteInput) {
     setError(null);

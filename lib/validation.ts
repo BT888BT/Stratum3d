@@ -5,7 +5,7 @@ export const maxFileSizeBytes = 50 * 1024 * 1024;
 
 export const quoteInputSchema = z.object({
   customerName: z.string().min(2).max(120),
-  email: z.string().email(),
+  email: z.email(),
   phone: z.string().max(50).optional().or(z.literal("")),
   material: z.enum(["PLA", "PETG", "ABS"]),
   colour: z.string().min(1).max(50),
@@ -18,7 +18,8 @@ export const quoteInputSchema = z.object({
   shippingMethod: z.enum(["pickup", "standard"])
 });
 
-export type QuoteInput = z.infer<typeof quoteInputSchema>;
+export type QuoteInput = z.input<typeof quoteInputSchema>;
+export type QuoteInputParsed = z.output<typeof quoteInputSchema>;
 
 export function isAllowedFile(filename: string) {
   const lower = filename.toLowerCase();

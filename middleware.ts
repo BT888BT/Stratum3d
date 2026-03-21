@@ -4,8 +4,8 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow the login page through — otherwise we get an infinite redirect loop
-  if (pathname === "/admin/login") {
+  // /login is public — let it through
+  if (pathname === "/login") {
     return NextResponse.next();
   }
 
@@ -20,7 +20,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  return NextResponse.redirect(new URL("/admin/login", request.url));
+  return NextResponse.redirect(new URL("/login", request.url));
 }
 
 export const config = {

@@ -2,18 +2,16 @@ import Link from "next/link";
 
 export default function CheckoutSuccessPage() {
   return (
-    <section className="mx-auto max-w-2xl rounded-3xl border border-neutral-800 bg-neutral-900 p-8 text-center">
-      <h1 className="text-3xl font-semibold">Payment successful</h1>
-      <p className="mt-4 text-neutral-300">
-        Your order has been received. We will review the file and proceed with
-        production.
-      </p>
-      <Link
-        href="/"
-        className="mt-6 inline-block rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black"
-      >
-        Back to home
-      </Link>
-    </section>
+    <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div className="card-accent corner-accent" style={{ maxWidth: 480, width: "100%", textAlign: "center", padding: 48 }}>
+        <div style={{ fontSize: 48, marginBottom: 20 }}>✓</div>
+        <p className="eyebrow" style={{ marginBottom: 12 }}>Order Confirmed</p>
+        <h1 className="font-display" style={{ fontSize: 28, fontWeight: 700, marginBottom: 16 }}>Payment Successful</h1>
+        <p style={{ color: "var(--text-dim)", fontSize: 14, lineHeight: 1.7, marginBottom: 32 }}>
+          Your order has been received and payment confirmed. You'll get an email update as your print progresses through production.
+        </p>
+        <Link href="/" className="btn-primary">Back to Home →</Link>
+      </div>
+    </div>
   );
 }

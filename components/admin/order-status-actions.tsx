@@ -3,39 +3,29 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const actions = [
-  { label: "Mark printing", status: "printing" },
-  { label: "Mark completed", status: "completed" },
-  { label: "Mark cancelled", status: "cancelled" }
+const ACTIONS = [
+  { label: "Mark as Printing", status: "printing", color: "var(--amber)" },
+  { label: "Mark as Completed", status: "completed", color: "var(--green)" },
+  { label: "Mark as Cancelled", status: "cancelled", color: "var(--red)" },
 ] as const;
 
 export default function OrderStatusActions({ orderId }: { orderId: string }) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [note, setNote] = useState("");
   const router = useRouter();
 
   async function updateStatus(status: string) {
     try {
       setLoading(status);
       setError("");
-
       const res = await fetch("/api/admin/update-status", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          orderId,
-          status
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, status, note: note || undefined })
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to update status.");
-      }
-
+      if (!res.ok) throw new Error(data.error || "Failed to update status.");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status.");
@@ -51,34 +41,57 @@ export default function OrderStatusActions({ orderId }: { orderId: string }) {
   }
 
   return (
-    <div className="rounded-3xl border border-neutral-800 bg-neutral-900 p-6">
-      <h2 className="text-xl font-semibold">Admin actions</h2>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "var(--text-dim)" }}>Note (optional — sent to customer)</span>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="input-field"
+            style={{ resize: "vertical", minHeight: 72, fontSize: 13 }}
+            placeholder="e.g. Your print is queued for tomorrow morning..."
+          />
+        </label>
+      </div>
 
-      <div className="mt-4 flex flex-wrap gap-3">
-        {actions.map((action) => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {ACTIONS.map((action) => (
           <button
             key={action.status}
             onClick={() => updateStatus(action.status)}
             disabled={loading !== null}
-            className="rounded-2xl border border-neutral-700 px-4 py-2 text-sm hover:bg-neutral-800 disabled:opacity-60"
+            style={{
+              background: "transparent",
+              border: `1px solid ${action.color}22`,
+              borderRadius: 8,
+              padding: "10px 16px",
+              color: action.color,
+              fontSize: 13,
+              cursor: "pointer",
+              textAlign: "left",
+              transition: "background 0.15s",
+              opacity: loading !== null ? 0.5 : 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = `${action.color}11`)}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
           >
-            {loading === action.status ? "Updating..." : action.label}
+            <span>{loading === action.status ? "Updating..." : action.label}</span>
+            <span style={{ opacity: 0.4 }}>→</span>
           </button>
         ))}
-
-        <button
-          onClick={logout}
-          className="rounded-2xl border border-red-900 px-4 py-2 text-sm text-red-200 hover:bg-red-950/40"
-        >
-          Log out
-        </button>
       </div>
 
-      {error ? (
-        <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-          {error}
-        </div>
-      ) : null}
+      {error && <div className="error-box">{error}</div>}
+
+      <hr className="divider" />
+
+      <button onClick={logout} className="btn-danger" style={{ fontSize: 12, padding: "8px 16px" }}>
+        Log out
+      </button>
     </div>
   );
 }

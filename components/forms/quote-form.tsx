@@ -19,7 +19,6 @@ type QuoteApiResponse = {
   gstCents: number;
   materialCostCents: number;
   machineCostCents: number;
-  setupFeeCents: number;
   estimatedVolumeCm3: number;
   estimatedWeightGrams: number;
   estimatedPrintTimeMinutes: number;

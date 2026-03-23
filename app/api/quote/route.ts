@@ -72,6 +72,28 @@ export async function POST(request: Request) {
       );
     }
 
+    // Extract verified address fields
+    const shippingAddressLine1 = formData.get("shippingAddressLine1") as string | null;
+    const shippingAddressLine2 = formData.get("shippingAddressLine2") as string | null;
+    const shippingCity = formData.get("shippingCity") as string | null;
+    const shippingState = formData.get("shippingState") as string | null;
+    const shippingPostcode = formData.get("shippingPostcode") as string | null;
+    const shippingCountry = formData.get("shippingCountry") as string | null;
+
+    if (!shippingAddressLine1 || !shippingCity || !shippingState || !shippingPostcode) {
+      return NextResponse.json(
+        { error: "A verified Australian shipping address is required." },
+        { status: 400 }
+      );
+    }
+
+    if (shippingCountry !== "AU") {
+      return NextResponse.json(
+        { error: "Shipping is only available within Australia." },
+        { status: 400 }
+      );
+    }
+
     const input = parsed.data;
     const quote = calculateQuote(input, volumeMm3);
 
@@ -89,12 +111,12 @@ export async function POST(request: Request) {
         shipping_cents: quote.shippingCents,
         gst_cents: quote.gstCents,
         total_cents: quote.totalCents,
-        shipping_address_line1: input.shippingAddressLine1,
-        shipping_address_line2: input.shippingAddressLine2 || null,
-        shipping_city: input.shippingCity,
-        shipping_state: input.shippingState,
-        shipping_postcode: input.shippingPostcode,
-        shipping_country: input.shippingCountry,
+        shipping_address_line1: shippingAddressLine1,
+        shipping_address_line2: shippingAddressLine2 || null,
+        shipping_city: shippingCity,
+        shipping_state: shippingState,
+        shipping_postcode: shippingPostcode,
+        shipping_country: "AU",
       })
       .select()
       .single();

@@ -12,6 +12,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
+      <head>
+        <meta name="viewport" content="width=1280, initial-scale=1" />
+      </head>
       <body>
         <div className="min-h-screen" style={{ background: "var(--bg)" }}>
           {/* Header */}

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { formatAud } from "@/lib/utils";
+import { extractVolumeMm3FromFile } from "@/lib/mesh-volume-client";
 import AddressAutocomplete, { type ParsedAddress } from "@/components/forms/address-autocomplete";
 
 const LAYER_OPTIONS = [
@@ -11,6 +12,7 @@ const LAYER_OPTIONS = [
   { value: 0.3,  label: "0.30 mm — Draft" },
 ];
 const INFILL_OPTIONS = [10, 15, 20, 30, 40, 50, 75, 100];
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 type Colour = { id: string; name: string; hex: string; available: boolean };
 type FileItem = {
@@ -18,6 +20,8 @@ type FileItem = {
   material: "PLA" | "PETG" | "ABS";
   colour: string; quantity: number;
   layerHeightMm: number; infillPercent: number;
+  volumeMm3: number | null; // computed client-side
+  volumeError: string | null;
 };
 type ItemResult = {
   filename: string; material: string; colour: string; quantity: number;
@@ -45,6 +49,7 @@ export default function QuoteForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loadingQuote, setLoadingQuote] = useState(false);
   const [loadingCheckout, setLoadingCheckout] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
 
   useEffect(() => {
     fetch("/api/colours").then(r => r.json())
@@ -56,13 +61,41 @@ export default function QuoteForm() {
     setAddress(a); setAddressError("");
   }, []);
 
-  function addFiles(fl: FileList | null) {
+  async function computeVolume(file: File): Promise<{ volumeMm3: number | null; volumeError: string | null }> {
+    try {
+      const vol = await extractVolumeMm3FromFile(file);
+      if (!isFinite(vol) || vol <= 0) {
+        return { volumeMm3: null, volumeError: "Could not calculate volume — ensure mesh is a valid closed solid." };
+      }
+      return { volumeMm3: vol, volumeError: null };
+    } catch (err) {
+      return { volumeMm3: null, volumeError: err instanceof Error ? err.message : "Failed to parse file." };
+    }
+  }
+
+  async function addFiles(fl: FileList | null) {
     if (!fl) return;
     const def = colours.find(c => c.available)?.name ?? "Black";
-    const toAdd: FileItem[] = Array.from(fl)
-      .filter(f => f.name.toLowerCase().endsWith(".stl"))
-      .map(f => ({ id: makeId(), file: f, material: "PLA", colour: def, quantity: 1, layerHeightMm: 0.2, infillPercent: 20 }));
-    setItems(p => [...p, ...toAdd]);
+    const stlFiles = Array.from(fl).filter(f => f.name.toLowerCase().endsWith(".stl"));
+
+    if (stlFiles.length === 0) {
+      setError("Only .stl files are accepted.");
+      return;
+    }
+
+    const toAdd: FileItem[] = [];
+    for (const f of stlFiles) {
+      if (f.size > MAX_FILE_SIZE) {
+        setError(`"${f.name}" exceeds 50 MB limit.`);
+        continue;
+      }
+      const { volumeMm3, volumeError } = await computeVolume(f);
+      toAdd.push({
+        id: makeId(), file: f, material: "PLA", colour: def, quantity: 1,
+        layerHeightMm: 0.2, infillPercent: 20, volumeMm3, volumeError,
+      });
+    }
+    if (toAdd.length) setItems(p => [...p, ...toAdd]);
   }
 
   function removeItem(id: string) { setItems(p => p.filter(x => x.id !== id)); }
@@ -72,7 +105,7 @@ export default function QuoteForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null); setFieldErrors({});
+    setError(null); setFieldErrors({}); setUploadProgress("");
     const errs: Record<string, string> = {};
     if (!customerName.trim()) errs.customerName = "Required";
     if (!email.includes("@")) errs.email = "Valid email required";
@@ -80,29 +113,96 @@ export default function QuoteForm() {
     if (items.length === 0) errs.files = "Upload at least one STL file";
     if (Object.keys(errs).length || !address) { setFieldErrors(errs); return; }
 
+    // Check all volumes computed successfully
+    const badVolume = items.find(i => !i.volumeMm3);
+    if (badVolume) {
+      setError(`"${badVolume.file.name}": ${badVolume.volumeError || "volume calculation failed."}`);
+      return;
+    }
+
     try {
       setLoadingQuote(true);
-      const fd = new FormData();
-      fd.append("customerName", customerName);
-      fd.append("email", email);
-      fd.append("shippingAddressLine1", address!.line1);
-      fd.append("shippingAddressLine2", address!.line2 ?? "");
-      fd.append("shippingCity", address!.city);
-      fd.append("shippingState", address!.state);
-      fd.append("shippingPostcode", address!.postcode);
-      fd.append("shippingCountry", address!.country);
-      items.forEach(item => fd.append("files", item.file));
-      fd.append("itemSettings", JSON.stringify(items.map(i => ({
-        material: i.material, colour: i.colour, quantity: i.quantity,
-        layerHeightMm: i.layerHeightMm, infillPercent: i.infillPercent,
-      }))));
-      const res = await fetch("/api/quote", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create quote.");
+
+      // ── Step 1: Get signed upload URLs ──────────────────
+      setUploadProgress("Preparing upload...");
+      const urlRes = await fetch("/api/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: items.map(i => ({ name: i.file.name, size: i.file.size })),
+        }),
+      });
+
+      if (!urlRes.ok) {
+        const errData = await urlRes.json().catch(() => null);
+        throw new Error(errData?.error || `Upload preparation failed (${urlRes.status}).`);
+      }
+
+      const { batchId, uploads } = await urlRes.json() as {
+        batchId: string;
+        uploads: { originalFilename: string; storagePath: string; signedUrl: string; token: string }[];
+      };
+
+      // ── Step 2: Upload files directly to Supabase Storage ──
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const upload = uploads[i];
+        setUploadProgress(`Uploading ${i + 1} of ${items.length}: ${item.file.name}...`);
+
+        const uploadRes = await fetch(upload.signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: item.file,
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error(`Failed to upload "${item.file.name}" — please try again.`);
+        }
+      }
+
+      // ── Step 3: Submit quote with metadata only ─────────
+      setUploadProgress("Calculating quote...");
+      const quoteRes = await fetch("/api/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName,
+          email,
+          shippingAddressLine1: address!.line1,
+          shippingAddressLine2: address!.line2 ?? "",
+          shippingCity: address!.city,
+          shippingState: address!.state,
+          shippingPostcode: address!.postcode,
+          shippingCountry: address!.country,
+          batchId,
+          items: items.map((item, i) => ({
+            originalFilename: item.file.name,
+            storagePath: uploads[i].storagePath,
+            fileSizeBytes: item.file.size,
+            volumeMm3: item.volumeMm3,
+            material: item.material,
+            colour: item.colour,
+            quantity: item.quantity,
+            layerHeightMm: item.layerHeightMm,
+            infillPercent: item.infillPercent,
+          })),
+        }),
+      });
+
+      if (!quoteRes.ok) {
+        const errData = await quoteRes.json().catch(() => null);
+        throw new Error(errData?.error || `Quote failed (${quoteRes.status}).`);
+      }
+
+      const data: QuoteApiResponse = await quoteRes.json();
       setQuote(data);
+
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create quote.");
-    } finally { setLoadingQuote(false); }
+    } finally {
+      setLoadingQuote(false);
+      setUploadProgress("");
+    }
   }
 
   async function startCheckout() {
@@ -113,8 +213,13 @@ export default function QuoteForm() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId: quote.orderId }),
       });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || `Checkout failed (${res.status}).`);
+      }
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed.");
       window.location.href = data.url;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed.");
@@ -122,7 +227,7 @@ export default function QuoteForm() {
   }
 
   return (
-    <div style={{
+    <div className="quote-grid" style={{
       display: "grid",
       gridTemplateColumns: "minmax(0, 1fr) minmax(0, 360px)",
       gap: "clamp(16px, 3vw, 28px)",
@@ -212,6 +317,13 @@ export default function QuoteForm() {
                       <span className="font-mono" style={{ fontSize: 10, color: "var(--orange)", flexShrink: 0 }}>#{idx + 1}</span>
                       <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.file.name}</span>
                       <span className="font-mono" style={{ fontSize: 10, color: "var(--muted)", flexShrink: 0 }}>{(item.file.size / 1024).toFixed(0)}KB</span>
+                      {item.volumeMm3 ? (
+                        <span className="font-mono" style={{ fontSize: 10, color: "var(--green)", flexShrink: 0 }}>
+                          {(item.volumeMm3 / 1000).toFixed(1)} cm³
+                        </span>
+                      ) : item.volumeError ? (
+                        <span className="font-mono" style={{ fontSize: 10, color: "var(--red)", flexShrink: 0 }}>⚠ parse error</span>
+                      ) : null}
                     </div>
                     <button type="button" onClick={() => removeItem(item.id)}
                       style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 18, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}
@@ -219,6 +331,13 @@ export default function QuoteForm() {
                       onMouseLeave={e => (e.currentTarget.style.color = "var(--muted)")}
                     >×</button>
                   </div>
+
+                  {/* Volume error warning */}
+                  {item.volumeError && (
+                    <div style={{ padding: "8px 14px", background: "rgba(255,90,90,0.08)", borderBottom: "1px solid rgba(255,90,90,0.15)", fontSize: 12, color: "var(--red)" }}>
+                      ⚠ {item.volumeError}
+                    </div>
+                  )}
 
                   {/* Settings */}
                   <div className="file-settings-grid" style={{ padding: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 70px 70px", gap: 10 }}>
@@ -266,8 +385,15 @@ export default function QuoteForm() {
 
         {error && <div className="error-box">{error}</div>}
 
+        {uploadProgress && (
+          <div style={{ fontSize: 13, color: "var(--orange)", display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="glow-pulse" style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--orange)" }} />
+            {uploadProgress}
+          </div>
+        )}
+
         <button type="submit" disabled={loadingQuote || items.length === 0} className="btn-primary" style={{ width: "100%", fontSize: 16 }}>
-          {loadingQuote ? "Calculating..." : items.length > 1 ? `Calculate Quote (${items.length} files) →` : "Calculate Quote →"}
+          {loadingQuote ? "Processing..." : items.length > 1 ? `Calculate Quote (${items.length} files) →` : "Calculate Quote →"}
         </button>
       </form>
 
@@ -334,14 +460,6 @@ function Row({ label, value }: { label: string; value: string }) {
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <span style={{ fontSize: 13, color: "var(--text-dim)" }}>{label}</span>
       <span style={{ fontSize: 13 }}>{value}</span>
-    </div>
-  );
-}
-function SR({ label, value, hi }: { label: string; value: string; hi?: boolean }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between" }}>
-      <span style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</span>
-      <span className="font-mono" style={{ fontSize: 11, color: hi ? "var(--orange)" : "var(--text-dim)" }}>{value}</span>
     </div>
   );
 }

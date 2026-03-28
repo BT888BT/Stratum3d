@@ -1,26 +1,60 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateItemQuote, sumQuote } from "@/lib/quote";
-import { extractVolumeMm3FromBuffer } from "@/lib/mesh-volume";
-import { isAllowedFile, maxFileSizeBytes, fileItemSchema, orderContactSchema } from "@/lib/validation";
-import { slugFileName } from "@/lib/utils";
+import { fileItemSchema, orderContactSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Accepts JSON body with pre-computed volumes and Supabase storage paths.
+ * Files are uploaded directly to Supabase Storage from the client,
+ * bypassing Vercel's 4.5 MB serverless function body limit.
+ */
+
+interface QuoteFileItem {
+  originalFilename: string;
+  storagePath: string;
+  fileSizeBytes: number;
+  volumeMm3: number;
+  material: string;
+  colour: string;
+  quantity: number;
+  layerHeightMm: number;
+  infillPercent: number;
+}
+
+interface QuoteRequestBody {
+  customerName: string;
+  email: string;
+  shippingAddressLine1: string;
+  shippingAddressLine2?: string;
+  shippingCity: string;
+  shippingState: string;
+  shippingPostcode: string;
+  shippingCountry: string;
+  batchId: string;
+  items: QuoteFileItem[];
+}
+
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
+    let body: QuoteRequestBody;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    }
 
     // ── Contact/address ────────────────────────────────────
     const contactParsed = orderContactSchema.safeParse({
-      customerName: formData.get("customerName"),
-      email: formData.get("email"),
-      shippingAddressLine1: formData.get("shippingAddressLine1"),
-      shippingAddressLine2: formData.get("shippingAddressLine2"),
-      shippingCity: formData.get("shippingCity"),
-      shippingState: formData.get("shippingState"),
-      shippingPostcode: formData.get("shippingPostcode"),
-      shippingCountry: formData.get("shippingCountry"),
+      customerName: body.customerName,
+      email: body.email,
+      shippingAddressLine1: body.shippingAddressLine1,
+      shippingAddressLine2: body.shippingAddressLine2,
+      shippingCity: body.shippingCity,
+      shippingState: body.shippingState,
+      shippingPostcode: body.shippingPostcode,
+      shippingCountry: body.shippingCountry,
     });
 
     if (!contactParsed.success) {
@@ -31,84 +65,50 @@ export async function POST(request: Request) {
     }
     const contact = contactParsed.data;
 
-    // ── Files ──────────────────────────────────────────────
-    const files = formData.getAll("files") as File[];
-    if (!files.length) {
-      return NextResponse.json({ error: "At least one STL file is required." }, { status: 400 });
-    }
-
-    // ── Per-file settings ──────────────────────────────────
-    const itemSettingsRaw = formData.get("itemSettings");
-    if (!itemSettingsRaw) {
-      return NextResponse.json({ error: "Item settings are required." }, { status: 400 });
-    }
-    let rawItems: unknown[];
-    try {
-      rawItems = JSON.parse(itemSettingsRaw as string);
-    } catch {
-      return NextResponse.json({ error: "Invalid item settings format." }, { status: 400 });
-    }
-
-    if (!Array.isArray(rawItems) || rawItems.length !== files.length) {
-      return NextResponse.json(
-        { error: `Expected ${files.length} item settings, got ${Array.isArray(rawItems) ? rawItems.length : 0}.` },
-        { status: 400 }
-      );
-    }
-
-    // ── Read all file buffers ONCE upfront ─────────────────
-    // arrayBuffer() can only be called once per File — read them all here
-    // so we can use the same buffer for both volume parsing and storage upload.
-    const fileBuffers: Buffer[] = [];
-    for (const file of files) {
-      const ab = await file.arrayBuffer();
-      fileBuffers.push(Buffer.from(ab));
+    // ── Items ──────────────────────────────────────────────
+    if (!body.items?.length) {
+      return NextResponse.json({ error: "At least one file is required." }, { status: 400 });
     }
 
     // ── Validate + calculate each item ─────────────────────
-    const itemResults: { file: File; buffer: Buffer; settings: ReturnType<typeof fileItemSchema.parse>; volumeMm3: number }[] = [];
+    const validatedItems: { item: QuoteFileItem; settings: ReturnType<typeof fileItemSchema.parse> }[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const buffer = fileBuffers[i];
-
-      if (!isAllowedFile(file.name)) {
-        return NextResponse.json({ error: `"${file.name}": STL files only.` }, { status: 400 });
-      }
-      if (file.size <= 0 || file.size > maxFileSizeBytes) {
-        return NextResponse.json({ error: `"${file.name}": exceeds 50 MB limit.` }, { status: 400 });
-      }
-
-      const settingsParsed = fileItemSchema.safeParse(rawItems[i]);
-      if (!settingsParsed.success) {
+    for (const item of body.items) {
+      if (!item.volumeMm3 || !isFinite(item.volumeMm3) || item.volumeMm3 <= 0) {
         return NextResponse.json(
-          { error: `"${file.name}": invalid settings.`, details: settingsParsed.error.flatten() },
-          { status: 400 }
-        );
-      }
-
-      let volumeMm3: number;
-      try {
-        volumeMm3 = extractVolumeMm3FromBuffer(buffer, file.name);
-        if (!isFinite(volumeMm3) || volumeMm3 <= 0) {
-          return NextResponse.json(
-            { error: `"${file.name}": could not calculate volume. Ensure it is a valid closed mesh.` },
-            { status: 422 }
-          );
-        }
-      } catch (err) {
-        return NextResponse.json(
-          { error: `"${file.name}": failed to parse — ${err instanceof Error ? err.message : "invalid STL"}` },
+          { error: `"${item.originalFilename}": invalid volume. Ensure it is a valid closed mesh.` },
           { status: 422 }
         );
       }
 
-      itemResults.push({ file, buffer, settings: settingsParsed.data, volumeMm3 });
+      if (!item.storagePath) {
+        return NextResponse.json(
+          { error: `"${item.originalFilename}": missing storage path — upload may have failed.` },
+          { status: 400 }
+        );
+      }
+
+      const settingsParsed = fileItemSchema.safeParse({
+        material: item.material,
+        colour: item.colour,
+        quantity: item.quantity,
+        layerHeightMm: item.layerHeightMm,
+        infillPercent: item.infillPercent,
+      });
+
+      if (!settingsParsed.success) {
+        return NextResponse.json(
+          { error: `"${item.originalFilename}": invalid settings.`, details: settingsParsed.error.flatten() },
+          { status: 400 }
+        );
+      }
+
+      validatedItems.push({ item, settings: settingsParsed.data });
     }
 
     // ── Calculate quote ────────────────────────────────────
-    const itemQuotes = itemResults.map(({ file, settings, volumeMm3 }) =>
-      calculateItemQuote(settings, volumeMm3, file.name)
+    const itemQuotes = validatedItems.map(({ item, settings }) =>
+      calculateItemQuote(settings, item.volumeMm3, item.originalFilename)
     );
     const quote = sumQuote(itemQuotes);
 
@@ -139,26 +139,27 @@ export async function POST(request: Request) {
 
     if (orderError || !order) throw new Error(orderError?.message || "Failed to create order.");
 
-    // ── Save files + quote inputs ──────────────────────────
-    for (let i = 0; i < itemResults.length; i++) {
-      const { file, buffer, settings } = itemResults[i];
+    // ── Move files from pending to order folder + save records ──
+    for (let i = 0; i < validatedItems.length; i++) {
+      const { item, settings } = validatedItems[i];
       const itemQuote = itemQuotes[i];
 
-      const safeName = slugFileName(file.name);
-      const storagePath = `${order.id}/${Date.now()}-${i}-${safeName}.stl`;
+      // Move file from pending/{batchId}/... to {orderId}/...
+      const newPath = item.storagePath.replace(`pending/${body.batchId}/`, `${order.id}/`);
 
-      const { error: uploadError } = await supabase.storage
+      const { error: moveError } = await supabase.storage
         .from("order-files")
-        .upload(storagePath, buffer, { contentType: "model/stl", upsert: false });
+        .move(item.storagePath, newPath);
 
-      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+      // If move fails, keep the file where it is — still usable
+      const finalPath = moveError ? item.storagePath : newPath;
 
       await supabase.from("order_files").insert({
         order_id: order.id,
-        original_filename: file.name,
-        storage_path: storagePath,
+        original_filename: item.originalFilename,
+        storage_path: finalPath,
         mime_type: "model/stl",
-        file_size_bytes: file.size,
+        file_size_bytes: item.fileSizeBytes,
         validation_status: "accepted",
       });
 
@@ -181,7 +182,7 @@ export async function POST(request: Request) {
     await supabase.from("order_status_history").insert({
       order_id: order.id,
       status: "draft",
-      note: `Draft quote — ${files.length} file(s)`,
+      note: `Draft quote — ${body.items.length} file(s)`,
     });
 
     return NextResponse.json({ orderId: order.id, ...quote });

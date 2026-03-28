@@ -13,6 +13,16 @@ function formatAud(cents: number) {
   }).format(cents / 100);
 }
 
+/** Escape user-supplied strings before inserting into HTML emails */
+function esc(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // ─── Shared: check if email sending is configured ────────────────────────────
 
 function isEmailConfigured(): boolean {
@@ -57,8 +67,8 @@ export async function sendOrderConfirmationEmail(order: {
   // Build item rows for the email
   const itemRowsHtml = order.items.map((item, i) => `
     <tr${i > 0 ? ' style="border-top:1px solid #eee"' : ""}>
-      <td style="padding:8px 0;color:#555;font-size:14px">${item.filename}</td>
-      <td style="padding:8px 0;text-align:right;font-size:14px">${item.material} · ${item.colour} × ${item.quantity}</td>
+      <td style="padding:8px 0;color:#555;font-size:14px">${esc(item.filename)}</td>
+      <td style="padding:8px 0;text-align:right;font-size:14px">${esc(item.material)} · ${esc(item.colour)} × ${item.quantity}</td>
     </tr>
   `).join("");
 
@@ -70,14 +80,14 @@ export async function sendOrderConfirmationEmail(order: {
       subject: `Stratum3D — Order ${shortId} confirmed`,
       html: `
         <div style="font-family:sans-serif;max-width:540px;margin:auto;color:#111">
-          <h2 style="margin-bottom:4px">Thanks, ${order.customerName}!</h2>
+          <h2 style="margin-bottom:4px">Thanks, ${esc(order.customerName)}!</h2>
           <p style="color:#555;margin-top:0">Your 3D print order has been placed and payment received.</p>
 
           <table style="width:100%;border-collapse:collapse;margin:24px 0">
             <tr><td style="padding:8px 0;color:#555">Order</td><td style="padding:8px 0;text-align:right"><strong>${shortId}</strong></td></tr>
             <tr style="border-top:1px solid #eee"><td colspan="2" style="padding:12px 0 6px;font-weight:600;font-size:13px;color:#333;text-transform:uppercase;letter-spacing:0.05em">Print items</td></tr>
             ${itemRowsHtml}
-            <tr style="border-top:1px solid #eee"><td style="padding:8px 0;color:#555">Ship to</td><td style="padding:8px 0;text-align:right;font-size:14px">${order.shippingAddress}</td></tr>
+            <tr style="border-top:1px solid #eee"><td style="padding:8px 0;color:#555">Ship to</td><td style="padding:8px 0;text-align:right;font-size:14px">${esc(order.shippingAddress)}</td></tr>
             <tr style="border-top:1px solid #eee">
               <td style="padding:12px 0;color:#555">Subtotal</td><td style="padding:12px 0;text-align:right">${formatAud(order.subtotalCents)}</td>
             </tr>
@@ -106,7 +116,7 @@ export async function sendOrderConfirmationEmail(order: {
   // Admin notification (separate try — don't fail customer email if this breaks)
   if (ADMIN) {
     try {
-      const itemSummary = order.items.map(i => `${i.filename} (${i.material} ${i.colour} ×${i.quantity})`).join(", ");
+      const itemSummary = order.items.map(i => `${esc(i.filename)} (${esc(i.material)} ${esc(i.colour)} ×${i.quantity})`).join(", ");
       await resend.emails.send({
         from: FROM,
         to: ADMIN,
@@ -114,7 +124,7 @@ export async function sendOrderConfirmationEmail(order: {
         html: `
           <div style="font-family:sans-serif;max-width:540px;margin:auto;color:#111">
             <h2>New order received</h2>
-            <p><strong>Customer:</strong> ${order.customerName} (${order.email})</p>
+            <p><strong>Customer:</strong> ${esc(order.customerName)} (${esc(order.email)})</p>
             <p><strong>Total:</strong> ${formatAud(order.totalCents)}</p>
             <p><strong>Items:</strong> ${itemSummary}</p>
             <p><a href="${adminLink}" style="color:#0070f3">View order in admin →</a></p>
@@ -164,9 +174,9 @@ export async function sendStatusUpdateEmail(order: {
       html: `
         <div style="font-family:sans-serif;max-width:540px;margin:auto;color:#111">
           <h2>${label}</h2>
-          <p>Hi ${order.customerName},</p>
-          <p>Your order <strong>${shortId}</strong> status has been updated to <strong>${order.status}</strong>.</p>
-          ${order.note ? `<p style="background:#f5f5f5;padding:12px;border-radius:8px;color:#333">${order.note}</p>` : ""}
+          <p>Hi ${esc(order.customerName)},</p>
+          <p>Your order <strong>${shortId}</strong> status has been updated to <strong>${esc(order.status)}</strong>.</p>
+          ${order.note ? `<p style="background:#f5f5f5;padding:12px;border-radius:8px;color:#333">${esc(order.note)}</p>` : ""}
           <p style="color:#555;font-size:14px">If you have any questions, just reply to this email.</p>
           <p style="color:#555;font-size:14px">— The Stratum3D team</p>
         </div>

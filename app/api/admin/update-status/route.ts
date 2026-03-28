@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { isAdminAuthed } from "@/lib/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendStatusUpdateEmail } from "@/lib/email";
 
@@ -14,10 +14,7 @@ const allowedStatuses = [
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const adminCookie = cookieStore.get("stratum3d_admin")?.value;
-
-    if (!process.env.ADMIN_PASSWORD || adminCookie !== process.env.ADMIN_PASSWORD) {
+    if (!await isAdminAuthed()) {
       return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
     }
 

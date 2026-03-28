@@ -6,6 +6,22 @@ import { slugFileName } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+// Rate limit: max 10 quote submissions per IP per 15 minutes
+const quoteAttempts = new Map<string, { count: number; resetAt: number }>();
+const MAX_QUOTES = 10;
+const WINDOW_MS = 15 * 60 * 1000;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = quoteAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    quoteAttempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= MAX_QUOTES;
+}
+
 interface QuoteFileItem {
   originalFilename: string;
   storagePath: string;
@@ -33,6 +49,14 @@ interface QuoteRequestBody {
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json(
+        { error: "Too many quote requests. Please wait a few minutes." },
+        { status: 429 }
+      );
+    }
+
     let body: QuoteRequestBody;
     try {
       body = await request.json();

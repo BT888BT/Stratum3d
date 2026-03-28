@@ -4,14 +4,47 @@ import { slugFileName } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+// Rate limit: max 20 upload batches per IP per 15 minutes
+const uploadAttempts = new Map<string, { count: number; resetAt: number }>();
+const MAX_BATCHES = 20;
+const WINDOW_MS = 15 * 60 * 1000;
+const MAX_FILES_PER_BATCH = 10;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = uploadAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    uploadAttempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= MAX_BATCHES;
+}
+
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json(
+        { error: "Too many upload requests. Please wait a few minutes." },
+        { status: 429 }
+      );
+    }
+
     const { files } = await request.json() as {
       files: { name: string; size: number }[];
     };
 
     if (!files?.length) {
       return NextResponse.json({ error: "No files specified." }, { status: 400 });
+    }
+
+    if (files.length > MAX_FILES_PER_BATCH) {
+      return NextResponse.json(
+        { error: `Maximum ${MAX_FILES_PER_BATCH} files per upload.` },
+        { status: 400 }
+      );
     }
 
     const maxSize = 50 * 1024 * 1024;
@@ -26,7 +59,6 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient();
 
-    // Generate a batch ID to group files before an order exists
     const batchId = crypto.randomUUID();
 
     const uploads = await Promise.all(

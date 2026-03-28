@@ -23,9 +23,9 @@ type MaterialConfig = {
 };
 
 const MATERIALS: Record<string, MaterialConfig> = {
-  PLA:  { densityGPerCm3: 1.24, filamentCostPerGramCents: 6,  machineRatePerHourCents: 450, setupFeeCents: 500, minimumLineCents: 1200 },
-  PETG: { densityGPerCm3: 1.27, filamentCostPerGramCents: 8,  machineRatePerHourCents: 500, setupFeeCents: 600, minimumLineCents: 1500 },
-  ABS:  { densityGPerCm3: 1.04, filamentCostPerGramCents: 9,  machineRatePerHourCents: 550, setupFeeCents: 700, minimumLineCents: 1800 },
+  PLA:  { densityGPerCm3: 1.24, filamentCostPerGramCents: 6,  machineRatePerHourCents: 450, setupFeeCents: 200, minimumLineCents: 1200 },
+  PETG: { densityGPerCm3: 1.27, filamentCostPerGramCents: 8,  machineRatePerHourCents: 500, setupFeeCents: 200, minimumLineCents: 1500 },
+  ABS:  { densityGPerCm3: 1.04, filamentCostPerGramCents: 9,  machineRatePerHourCents: 550, setupFeeCents: 200, minimumLineCents: 1800 },
 };
 
 /**

@@ -293,28 +293,23 @@ export default function QuoteForm() {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {quote.items.map((item, i) => (
-                <div key={i} style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 12 }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, marginBottom: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--orange)" }}>{item.filename}</p>
-                  <p style={{ fontSize: 10, color: "var(--muted)", marginBottom: 8 }}>{item.material} · {item.colour} · qty {item.quantity}</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <SR label="Solid volume"   value={`${item.solidVolumeCm3} cm³`} />
-                    <SR label="Printed volume" value={`${item.printedVolumeCm3} cm³`} />
-                    <SR label="Weight/unit"    value={`${item.estimatedWeightGrams} g`} />
-                    <SR label="Print time/unit" value={`${item.estimatedPrintTimeMinutes} min`} />
-                    <SR label="Material cost"  value={formatAud(item.materialCostCents)} />
-                    <SR label="Machine cost"   value={formatAud(item.machineCostCents)} />
-                    <SR label="Setup"          value={formatAud(item.setupFeeCents)} />
-                    <SR label="Line total"     value={formatAud(item.itemTotalCents)} hi />
+                <div key={i} style={{ background: "rgba(0,0,0,0.25)", borderRadius: 8, padding: "10px 12px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text)" }}>{item.filename}</p>
+                      <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{item.material} · {item.colour} · qty {item.quantity}</p>
+                    </div>
+                    <span className="font-mono" style={{ fontSize: 14, color: "var(--orange)", flexShrink: 0, marginLeft: 12 }}>{formatAud(item.itemTotalCents)}</span>
                   </div>
                 </div>
               ))}
 
               <hr className="divider" />
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <Row label="Subtotal" value={formatAud(quote.subtotalCents)} />
-                <Row label="GST (10%)" value={formatAud(quote.gstCents)} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <Row label="Printing" value={formatAud(quote.subtotalCents)} />
                 <Row label="Shipping" value={formatAud(quote.shippingCents)} />
+                <Row label="GST (10%)" value={formatAud(quote.gstCents)} />
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderTop: "1px solid rgba(249,115,22,0.2)" }}>

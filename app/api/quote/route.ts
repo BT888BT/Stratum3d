@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateItemQuote, sumQuote } from "@/lib/quote";
-import { extractVolumeMm3 } from "@/lib/mesh-volume";
+import { extractVolumeMm3FromBuffer } from "@/lib/mesh-volume";
 import { isAllowedFile, maxFileSizeBytes, fileItemSchema, orderContactSchema } from "@/lib/validation";
 import { slugFileName } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
 
-    // ── Parse contact/address ──────────────────────────────
+    // ── Contact/address ────────────────────────────────────
     const contactParsed = orderContactSchema.safeParse({
       customerName: formData.get("customerName"),
       email: formData.get("email"),
@@ -29,63 +31,79 @@ export async function POST(request: Request) {
     }
     const contact = contactParsed.data;
 
-    // ── Collect files ──────────────────────────────────────
+    // ── Files ──────────────────────────────────────────────
     const files = formData.getAll("files") as File[];
     if (!files.length) {
       return NextResponse.json({ error: "At least one STL file is required." }, { status: 400 });
     }
 
-    // ── Per-file settings sent as JSON array ───────────────
+    // ── Per-file settings ──────────────────────────────────
     const itemSettingsRaw = formData.get("itemSettings");
     if (!itemSettingsRaw) {
       return NextResponse.json({ error: "Item settings are required." }, { status: 400 });
     }
     let rawItems: unknown[];
-    try { rawItems = JSON.parse(itemSettingsRaw as string); }
-    catch { return NextResponse.json({ error: "Invalid item settings format." }, { status: 400 }); }
-
-    if (!Array.isArray(rawItems) || rawItems.length !== files.length) {
-      return NextResponse.json({ error: "Item settings count must match file count." }, { status: 400 });
+    try {
+      rawItems = JSON.parse(itemSettingsRaw as string);
+    } catch {
+      return NextResponse.json({ error: "Invalid item settings format." }, { status: 400 });
     }
 
-    // ── Validate each file + settings ─────────────────────
-    const itemResults = [];
+    if (!Array.isArray(rawItems) || rawItems.length !== files.length) {
+      return NextResponse.json(
+        { error: `Expected ${files.length} item settings, got ${Array.isArray(rawItems) ? rawItems.length : 0}.` },
+        { status: 400 }
+      );
+    }
+
+    // ── Read all file buffers ONCE upfront ─────────────────
+    // arrayBuffer() can only be called once per File — read them all here
+    // so we can use the same buffer for both volume parsing and storage upload.
+    const fileBuffers: Buffer[] = [];
+    for (const file of files) {
+      const ab = await file.arrayBuffer();
+      fileBuffers.push(Buffer.from(ab));
+    }
+
+    // ── Validate + calculate each item ─────────────────────
+    const itemResults: { file: File; buffer: Buffer; settings: ReturnType<typeof fileItemSchema.parse>; volumeMm3: number }[] = [];
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      const buffer = fileBuffers[i];
 
       if (!isAllowedFile(file.name)) {
-        return NextResponse.json({ error: `File "${file.name}": invalid type. STL only.` }, { status: 400 });
+        return NextResponse.json({ error: `"${file.name}": STL files only.` }, { status: 400 });
       }
       if (file.size <= 0 || file.size > maxFileSizeBytes) {
-        return NextResponse.json({ error: `File "${file.name}": exceeds 50 MB limit.` }, { status: 400 });
+        return NextResponse.json({ error: `"${file.name}": exceeds 50 MB limit.` }, { status: 400 });
       }
 
       const settingsParsed = fileItemSchema.safeParse(rawItems[i]);
       if (!settingsParsed.success) {
         return NextResponse.json(
-          { error: `File "${file.name}": invalid settings.`, details: settingsParsed.error.flatten() },
+          { error: `"${file.name}": invalid settings.`, details: settingsParsed.error.flatten() },
           { status: 400 }
         );
       }
-      const settings = settingsParsed.data;
 
       let volumeMm3: number;
       try {
-        volumeMm3 = await extractVolumeMm3(file);
+        volumeMm3 = extractVolumeMm3FromBuffer(buffer, file.name);
         if (!isFinite(volumeMm3) || volumeMm3 <= 0) {
           return NextResponse.json(
-            { error: `File "${file.name}": could not calculate volume. Ensure it is a valid closed mesh.` },
+            { error: `"${file.name}": could not calculate volume. Ensure it is a valid closed mesh.` },
             { status: 422 }
           );
         }
-      } catch {
+      } catch (err) {
         return NextResponse.json(
-          { error: `File "${file.name}": failed to parse. Ensure it is a valid STL file.` },
+          { error: `"${file.name}": failed to parse — ${err instanceof Error ? err.message : "invalid STL"}` },
           { status: 422 }
         );
       }
 
-      itemResults.push({ file, settings, volumeMm3 });
+      itemResults.push({ file, buffer, settings: settingsParsed.data, volumeMm3 });
     }
 
     // ── Calculate quote ────────────────────────────────────
@@ -121,21 +139,19 @@ export async function POST(request: Request) {
 
     if (orderError || !order) throw new Error(orderError?.message || "Failed to create order.");
 
-    // ── Save each file + quote input ───────────────────────
+    // ── Save files + quote inputs ──────────────────────────
     for (let i = 0; i < itemResults.length; i++) {
-      const { file, settings } = itemResults[i];
+      const { file, buffer, settings } = itemResults[i];
       const itemQuote = itemQuotes[i];
 
-      const fileExt = "stl";
       const safeName = slugFileName(file.name);
-      const storagePath = `${order.id}/${Date.now()}-${i}-${safeName}.${fileExt}`;
-      const fileBuffer = Buffer.from(await file.arrayBuffer());
+      const storagePath = `${order.id}/${Date.now()}-${i}-${safeName}.stl`;
 
       const { error: uploadError } = await supabase.storage
         .from("order-files")
-        .upload(storagePath, fileBuffer, { contentType: "model/stl", upsert: false });
+        .upload(storagePath, buffer, { contentType: "model/stl", upsert: false });
 
-      if (uploadError) throw new Error(uploadError.message);
+      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
 
       await supabase.from("order_files").insert({
         order_id: order.id,
@@ -165,12 +181,13 @@ export async function POST(request: Request) {
     await supabase.from("order_status_history").insert({
       order_id: order.id,
       status: "draft",
-      note: `Draft quote created — ${files.length} file(s)`,
+      note: `Draft quote — ${files.length} file(s)`,
     });
 
     return NextResponse.json({ orderId: order.id, ...quote });
 
   } catch (error) {
+    console.error("[quote]", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to create quote." },
       { status: 500 }

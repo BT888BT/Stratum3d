@@ -1,23 +1,14 @@
 /**
- * Calculates the signed volume of a 3D mesh using the divergence theorem.
- * Works on any closed manifold mesh — returns volume in mm³.
- *
- * For each triangle with vertices A, B, C:
- *   signedVol = (A · (B × C)) / 6
- * Sum over all triangles → total signed volume.
- * abs() handles inverted winding.
+ * Volume calculation using the divergence theorem.
+ * For each triangle (A, B, C): signedVol = (A · (B × C)) / 6
+ * Sum and abs() → total solid volume in mm³.
  */
-
-// ── STL (binary) ─────────────────────────────────────────────────────────────
-// Binary STL: 80-byte header, 4-byte triangle count, then per triangle:
-//   12 bytes normal, 3 × 12 bytes vertices, 2 bytes attr = 50 bytes each
 
 function signedTriVolume(
   ax: number, ay: number, az: number,
   bx: number, by: number, bz: number,
   cx: number, cy: number, cz: number
 ): number {
-  // (A · (B × C)) / 6
   return (
     ax * (by * cz - bz * cy) +
     ay * (bz * cx - bx * cz) +
@@ -25,8 +16,9 @@ function signedTriVolume(
   ) / 6;
 }
 
-export function volumeFromSTL(buffer: ArrayBuffer): number {
-  const view = new DataView(buffer);
+// ── Binary STL ───────────────────────────────────────────────────────────────
+function volumeFromBinarySTL(buf: ArrayBuffer): number {
+  const view = new DataView(buf);
   const triCount = view.getUint32(80, true);
   let vol = 0;
   let offset = 84;
@@ -35,19 +27,34 @@ export function volumeFromSTL(buffer: ArrayBuffer): number {
     const ax = view.getFloat32(offset,      true); const ay = view.getFloat32(offset + 4,  true); const az = view.getFloat32(offset + 8,  true);
     const bx = view.getFloat32(offset + 12, true); const by = view.getFloat32(offset + 16, true); const bz = view.getFloat32(offset + 20, true);
     const cx = view.getFloat32(offset + 24, true); const cy = view.getFloat32(offset + 28, true); const cz = view.getFloat32(offset + 32, true);
-    offset += 36 + 2; // vertices + attr
+    offset += 36 + 2;
     vol += signedTriVolume(ax, ay, az, bx, by, bz, cx, cy, cz);
   }
   return Math.abs(vol);
 }
 
-// ── OBJ (text) ───────────────────────────────────────────────────────────────
-// Parse vertices (v x y z) and faces (f i j k ...) — supports quads via fan triangulation
+// ── ASCII STL ────────────────────────────────────────────────────────────────
+function volumeFromASCIISTL(text: string): number {
+  const re = /vertex\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)/g;
+  const verts: [number, number, number][] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    verts.push([parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])]);
+  }
+  let vol = 0;
+  for (let i = 0; i + 2 < verts.length; i += 3) {
+    const [ax, ay, az] = verts[i];
+    const [bx, by, bz] = verts[i + 1];
+    const [cx, cy, cz] = verts[i + 2];
+    vol += signedTriVolume(ax, ay, az, bx, by, bz, cx, cy, cz);
+  }
+  return Math.abs(vol);
+}
 
-export function volumeFromOBJ(text: string): number {
+// ── OBJ ──────────────────────────────────────────────────────────────────────
+function volumeFromOBJ(text: string): number {
   const verts: [number, number, number][] = [];
   let vol = 0;
-
   for (const line of text.split("\n")) {
     const t = line.trim();
     if (t.startsWith("v ")) {
@@ -55,7 +62,6 @@ export function volumeFromOBJ(text: string): number {
       verts.push([parseFloat(x), parseFloat(y), parseFloat(z)]);
     } else if (t.startsWith("f ")) {
       const idxs = t.split(/\s+/).slice(1).map(p => parseInt(p.split("/")[0]) - 1);
-      // fan triangulation for quads/ngons
       for (let i = 1; i + 1 < idxs.length; i++) {
         const [ax, ay, az] = verts[idxs[0]];
         const [bx, by, bz] = verts[idxs[i]];
@@ -67,62 +73,14 @@ export function volumeFromOBJ(text: string): number {
   return Math.abs(vol);
 }
 
-// ── 3MF (zip → XML) ──────────────────────────────────────────────────────────
-// 3MF is a ZIP. We need to unzip it and parse the mesh XML.
-// We use a pure-JS approach: find the 3dmodel.model file inside the ZIP.
-
-export function volumeFrom3MF(buffer: ArrayBuffer): number {
-  // 3MF ZIPs use local file headers. We scan for the model file content.
-  // Simple approach: convert to text and extract vertex/triangle data via regex.
-  // This works because 3MF XML is stored uncompressed or with deflate — we look
-  // for the stored (uncompressed) case first, then fall back to a parse attempt.
-
-  const bytes = new Uint8Array(buffer);
-
-  // Try to find XML content in the buffer by looking for <vertices> tag
-  // 3MF files often store the model uncompressed (store method = 0)
-  const xmlMarker = "<vertices>";
-  const markerBytes = Array.from(xmlMarker).map(c => c.charCodeAt(0));
-
-  let xmlStart = -1;
-  outer: for (let i = 0; i < bytes.length - markerBytes.length; i++) {
-    for (let j = 0; j < markerBytes.length; j++) {
-      if (bytes[i + j] !== markerBytes[j]) continue outer;
-    }
-    xmlStart = i;
-    break;
-  }
-
-  if (xmlStart === -1) {
-    throw new Error("Could not parse 3MF file. Try converting to STL.");
-  }
-
-  // Find end of mesh section
-  const endMarker = "</mesh>";
-  let xmlEnd = bytes.length;
-  const endBytes = Array.from(endMarker).map(c => c.charCodeAt(0));
-  for (let i = xmlStart; i < bytes.length - endBytes.length; i++) {
-    let match = true;
-    for (let j = 0; j < endBytes.length; j++) {
-      if (bytes[i + j] !== endBytes[j]) { match = false; break; }
-    }
-    if (match) { xmlEnd = i + endBytes.length; break; }
-  }
-
-  const xmlChunk = new TextDecoder().decode(bytes.slice(xmlStart - 50, xmlEnd));
-  return volumeFrom3MFXml(xmlChunk);
-}
-
+// ── 3MF ──────────────────────────────────────────────────────────────────────
 function volumeFrom3MFXml(xml: string): number {
-  // Parse vertices
   const verts: [number, number, number][] = [];
   const vertRe = /<vertex\s+x="([^"]+)"\s+y="([^"]+)"\s+z="([^"]+)"/g;
   let m: RegExpExecArray | null;
   while ((m = vertRe.exec(xml)) !== null) {
     verts.push([parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])]);
   }
-
-  // Parse triangles
   let vol = 0;
   const triRe = /<triangle\s+v1="(\d+)"\s+v2="(\d+)"\s+v3="(\d+)"/g;
   while ((m = triRe.exec(xml)) !== null) {
@@ -134,48 +92,69 @@ function volumeFrom3MFXml(xml: string): number {
   return Math.abs(vol);
 }
 
-// ── Main dispatcher ───────────────────────────────────────────────────────────
+function volumeFrom3MF(buf: ArrayBuffer): number {
+  const bytes = new Uint8Array(buf);
+  const marker = "<vertices>";
+  const markerBytes = Array.from(marker).map(c => c.charCodeAt(0));
+  let xmlStart = -1;
+  outer: for (let i = 0; i < bytes.length - markerBytes.length; i++) {
+    for (let j = 0; j < markerBytes.length; j++) {
+      if (bytes[i + j] !== markerBytes[j]) continue outer;
+    }
+    xmlStart = i; break;
+  }
+  if (xmlStart === -1) throw new Error("Could not parse 3MF — try converting to STL.");
+  const endMarker = "</mesh>";
+  let xmlEnd = bytes.length;
+  const endBytes = Array.from(endMarker).map(c => c.charCodeAt(0));
+  for (let i = xmlStart; i < bytes.length - endBytes.length; i++) {
+    let match = true;
+    for (let j = 0; j < endBytes.length; j++) {
+      if (bytes[i + j] !== endBytes[j]) { match = false; break; }
+    }
+    if (match) { xmlEnd = i + endBytes.length; break; }
+  }
+  const xml = new TextDecoder().decode(bytes.slice(xmlStart - 50, xmlEnd));
+  return volumeFrom3MFXml(xml);
+}
 
-export async function extractVolumeMm3(file: File): Promise<number> {
-  const buffer = await file.arrayBuffer();
-  const ext = file.name.split(".").pop()?.toLowerCase();
+// ── Main: accepts pre-read Buffer (avoids double arrayBuffer() consumption) ──
+
+export function extractVolumeMm3FromBuffer(buffer: Buffer, filename: string): number {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  const ab: ArrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
 
   if (ext === "stl") {
-    // Check if ASCII STL (starts with "solid")
-    const header = new TextDecoder().decode(new Uint8Array(buffer, 0, 6));
-    if (header.startsWith("solid")) {
-      // ASCII STL — convert to text and parse
-      const text = new TextDecoder().decode(buffer);
+    // Check if ASCII STL (starts with "solid" text, not binary)
+    const header = new TextDecoder().decode(new Uint8Array(ab, 0, 80));
+    // Binary STL may also start with "solid" in header — check triangle count vs file size
+    const view = new DataView(ab);
+    const triCount = view.getUint32(80, true);
+    const expectedBinarySize = 84 + triCount * 50;
+    const isBinary = Math.abs(buffer.length - expectedBinarySize) < 100;
+
+    if (isBinary) {
+      return volumeFromBinarySTL(ab);
+    } else {
+      const text = new TextDecoder().decode(ab);
       return volumeFromASCIISTL(text);
     }
-    return volumeFromSTL(buffer);
   }
 
   if (ext === "obj") {
-    const text = new TextDecoder().decode(buffer);
-    return volumeFromOBJ(text);
+    return volumeFromOBJ(new TextDecoder().decode(ab));
   }
 
   if (ext === "3mf") {
-    return volumeFrom3MF(buffer);
+    return volumeFrom3MF(ab);
   }
 
-  throw new Error("Unsupported file type.");
+  throw new Error(`Unsupported file type: .${ext}`);
 }
 
-function volumeFromASCIISTL(text: string): number {
-  const vertRe = /vertex\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)/g;
-  const verts: [number, number, number][] = [];
-  let m: RegExpExecArray | null;
-  while ((m = vertRe.exec(text)) !== null) {
-    verts.push([parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])]);
-  }
-  let vol = 0;
-  for (let i = 0; i + 2 < verts.length; i += 3) {
-    const [ax, ay, az] = verts[i];
-    const [bx, by, bz] = verts[i + 1];
-    const [cx, cy, cz] = verts[i + 2];
-    vol += signedTriVolume(ax, ay, az, bx, by, bz, cx, cy, cz);
-  }
-  return Math.abs(vol);
+// Keep async version for backwards compat if needed elsewhere
+export async function extractVolumeMm3(file: File): Promise<number> {
+  const ab = await file.arrayBuffer();
+  const buffer = Buffer.from(ab);
+  return extractVolumeMm3FromBuffer(buffer, file.name);
 }

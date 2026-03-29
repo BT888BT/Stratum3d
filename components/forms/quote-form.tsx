@@ -106,6 +106,7 @@ export default function QuoteForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null); setFieldErrors({}); setUploadProgress("");
+    setQuote(null); // Clear previous quote immediately — locks out the pay button
     const errs: Record<string, string> = {};
     if (!customerName.trim()) errs.customerName = "Required";
     if (!email.includes("@")) errs.email = "Valid email required";
@@ -390,7 +391,7 @@ export default function QuoteForm() {
           </div>
         )}
 
-        <button type="submit" disabled={loadingQuote || items.length === 0} className="btn-primary" style={{ width: "100%", fontSize: 16 }}>
+        <button type="submit" disabled={loadingQuote || loadingCheckout || items.length === 0} className="btn-primary" style={{ width: "100%", fontSize: 16 }}>
           {loadingQuote ? "Processing..." : items.length > 1 ? `Calculate Quote (${items.length} files) →` : "Calculate Quote →"}
         </button>
       </form>
@@ -441,7 +442,7 @@ export default function QuoteForm() {
                 <span className="font-display" style={{ fontSize: 28, color: "var(--orange)" }}>{formatAud(quote.totalCents)}</span>
               </div>
 
-              <button onClick={startCheckout} disabled={loadingCheckout} className="btn-primary" style={{ width: "100%", fontSize: 16 }}>
+              <button onClick={startCheckout} disabled={loadingCheckout || loadingQuote} className="btn-primary" style={{ width: "100%", fontSize: 16 }}>
                 {loadingCheckout ? "Redirecting..." : "Proceed to Payment →"}
               </button>
               <p style={{ fontSize: 11, color: "var(--muted)", textAlign: "center" }}>Secure checkout via Stripe · GST included</p>

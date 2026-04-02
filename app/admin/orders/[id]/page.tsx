@@ -69,15 +69,43 @@ export default async function AdminOrderDetailPage({
             <DetailRow label="Name" value={order.customer_name} />
             <DetailRow label="Email" value={order.email} />
             <hr className="divider" />
-            <p style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Shipping address</p>
-            {order.shipping_address_line1 ? (
-              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.7 }}>
-                <p>{order.shipping_address_line1}{order.shipping_address_line2 ? `, ${order.shipping_address_line2}` : ""}</p>
-                <p>{order.shipping_city} {order.shipping_state} {order.shipping_postcode}</p>
-                <p style={{ color: "var(--text-dim)" }}>{order.shipping_country}</p>
-              </div>
+
+            {/* Delivery method indicator */}
+            {order.shipping_cents === 500 ? (
+              <>
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+                  background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.2)",
+                  borderRadius: 8
+                }}>
+                  <span style={{ fontSize: 16 }}>📍</span>
+                  <div>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "var(--orange)" }}>PARCEL LOCKER PICKUP</p>
+                    <p style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>
+                      Stirling Central Shopping Centre, 478 Wanneroo Rd, Westminster WA 6061
+                    </p>
+                  </div>
+                </div>
+              </>
             ) : (
-              <p style={{ fontSize: 13, color: "var(--muted)" }}>No address recorded</p>
+              <>
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+                  background: "rgba(0,229,160,0.06)", border: "1px solid rgba(0,229,160,0.2)",
+                  borderRadius: 8
+                }}>
+                  <span style={{ fontSize: 16 }}>📦</span>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "var(--green)" }}>SHIPPING — AUSTRALIA POST</p>
+                </div>
+                {order.shipping_address_line1 ? (
+                  <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.7 }}>
+                    <p>{order.shipping_address_line1}{order.shipping_address_line2 ? `, ${order.shipping_address_line2}` : ""}</p>
+                    <p>{order.shipping_city} {order.shipping_state} {order.shipping_postcode}</p>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 13, color: "var(--muted)" }}>No address recorded</p>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -88,7 +116,7 @@ export default async function AdminOrderDetailPage({
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <DetailRow label="Subtotal" value={formatAud(order.subtotal_cents)} />
             <DetailRow label="GST (10%)" value={formatAud(order.gst_cents)} />
-            <DetailRow label="Shipping" value={order.shipping_cents === 0 ? "Free (pickup)" : formatAud(order.shipping_cents)} />
+            <DetailRow label="Shipping" value={order.shipping_cents === 500 ? "Pickup ($5.00)" : formatAud(order.shipping_cents)} />
             <hr className="divider" />
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span className="font-display" style={{ fontSize: 14, fontWeight: 600 }}>Total</span>

@@ -30,7 +30,11 @@ export type OrderLineItem = {
   filename: string;
   material: string;
   colour: string;
+  layerHeightMm: number;
+  infillPercent: number;
   quantity: number;
+  removeSupports: boolean;
+  lineTotalCents: number;
 };
 
 // ─── Customer: order confirmation ────────────────────────────────────────────
@@ -46,6 +50,7 @@ export async function sendOrderConfirmationEmail(order: {
   gstCents: number;
   items: OrderLineItem[];
   shippingAddress: string;
+  shippingMethod: string;
 }) {
   if (!process.env.RESEND_API_KEY) {
     throw new Error("RESEND_API_KEY is not set. Add it to your Vercel environment variables.");
@@ -57,13 +62,23 @@ export async function sendOrderConfirmationEmail(order: {
 
   const adminLink = `${SITE}/admin/orders/${order.id}`;
 
-  // Build item rows for the email
-  const itemRowsHtml = order.items.map((item, i) => `
-    <tr${i > 0 ? ' style="border-top:1px solid #eee"' : ""}>
-      <td style="padding:8px 0;color:#555;font-size:14px">${esc(item.filename)}</td>
-      <td style="padding:8px 0;text-align:right;font-size:14px">${esc(item.material)} · ${esc(item.colour)} × ${item.quantity}</td>
+  // Build invoice item rows
+  const itemRowsHtml = order.items.map((item) => `
+    <tr style="border-top:1px solid #eee">
+      <td style="padding:10px 0;vertical-align:top">
+        <p style="font-weight:600;font-size:14px;margin:0;color:#111">${esc(item.filename)}</p>
+        <p style="font-size:12px;color:#777;margin:4px 0 0 0">
+          ${esc(item.material)} · ${esc(item.colour)} · ${item.layerHeightMm}mm layer · ${item.infillPercent}% infill${item.removeSupports ? " · supports removed" : ""}
+        </p>
+      </td>
+      <td style="padding:10px 0;text-align:center;vertical-align:top;font-size:14px;color:#555;width:50px">×${item.quantity}</td>
+      <td style="padding:10px 0;text-align:right;vertical-align:top;font-size:14px;font-weight:600;color:#111;width:90px">${formatAud(item.lineTotalCents)}</td>
     </tr>
   `).join("");
+
+  const deliveryLabel = order.shippingMethod === "pickup"
+    ? "Parcel locker pickup"
+    : "Shipping (Australia Post)";
 
   // Customer email
   const { data, error } = await resend.emails.send({
@@ -72,30 +87,47 @@ export async function sendOrderConfirmationEmail(order: {
     to: order.email,
     subject: `Stratum3D — Order ${shortId} confirmed`,
     html: `
-      <div style="font-family:sans-serif;max-width:540px;margin:auto;color:#111">
+      <div style="font-family:sans-serif;max-width:580px;margin:auto;color:#111">
         <h2 style="margin-bottom:4px">Thanks, ${esc(order.customerName)}!</h2>
         <p style="color:#555;margin-top:0">Your 3D print order has been placed and payment received.</p>
 
-        <table style="width:100%;border-collapse:collapse;margin:24px 0">
-          <tr><td style="padding:8px 0;color:#555">Order</td><td style="padding:8px 0;text-align:right"><strong>${shortId}</strong></td></tr>
-          <tr style="border-top:1px solid #eee"><td colspan="2" style="padding:12px 0 6px;font-weight:600;font-size:13px;color:#333;text-transform:uppercase;letter-spacing:0.05em">Print items</td></tr>
-          ${itemRowsHtml}
-          <tr style="border-top:1px solid #eee"><td style="padding:8px 0;color:#555">Ship to</td><td style="padding:8px 0;text-align:right;font-size:14px">${esc(order.shippingAddress)}</td></tr>
-          <tr style="border-top:1px solid #eee">
-            <td style="padding:12px 0;color:#555">Subtotal</td><td style="padding:12px 0;text-align:right">${formatAud(order.subtotalCents)}</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 0;color:#555">GST</td><td style="padding:8px 0;text-align:right">${formatAud(order.gstCents)}</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 0;color:#555">Shipping</td><td style="padding:8px 0;text-align:right">${formatAud(order.shippingCents)}</td>
-          </tr>
-          <tr style="border-top:1px solid #eee">
-            <td style="padding:12px 0;font-weight:bold">Total</td><td style="padding:12px 0;text-align:right;font-weight:bold">${formatAud(order.totalCents)}</td>
-          </tr>
-        </table>
+        <div style="background:#f9f9f9;border:1px solid #eee;border-radius:8px;padding:20px;margin:24px 0">
+          <table style="width:100%;border-collapse:collapse">
+            <tr>
+              <td style="padding:0 0 16px 0;font-size:13px;color:#555">Order</td>
+              <td style="padding:0 0 16px 0;text-align:right;font-weight:700;font-size:15px" colspan="2">${shortId}</td>
+            </tr>
+            <tr style="border-top:2px solid #ddd">
+              <td style="padding:12px 0 8px 0;font-weight:600;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.08em">Item</td>
+              <td style="padding:12px 0 8px 0;font-weight:600;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.08em;text-align:center">Qty</td>
+              <td style="padding:12px 0 8px 0;font-weight:600;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.08em;text-align:right">Price</td>
+            </tr>
+            ${itemRowsHtml}
+            <tr style="border-top:2px solid #ddd">
+              <td style="padding:12px 0 6px 0;color:#555;font-size:14px" colspan="2">Subtotal</td>
+              <td style="padding:12px 0 6px 0;text-align:right;font-size:14px">${formatAud(order.subtotalCents)}</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 0;color:#555;font-size:14px" colspan="2">${deliveryLabel}</td>
+              <td style="padding:4px 0;text-align:right;font-size:14px">${formatAud(order.shippingCents)}</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 0;color:#555;font-size:14px" colspan="2">GST (10%)</td>
+              <td style="padding:4px 0;text-align:right;font-size:14px">${formatAud(order.gstCents)}</td>
+            </tr>
+            <tr style="border-top:2px solid #333">
+              <td style="padding:12px 0;font-weight:700;font-size:16px" colspan="2">Total paid</td>
+              <td style="padding:12px 0;text-align:right;font-weight:700;font-size:16px">${formatAud(order.totalCents)}</td>
+            </tr>
+          </table>
+        </div>
 
-        <p style="color:#555;font-size:14px">We'll send you another email when your print status changes. If you have any questions, just reply to this email.</p>
+        ${order.shippingMethod === "pickup"
+          ? `<p style="font-size:14px;color:#555">📍 <strong>Pickup:</strong> Stirling Central Shopping Centre, 478 Wanneroo Rd, Westminster WA 6061 — we'll email you when it's ready for collection.</p>`
+          : `<p style="font-size:14px;color:#555">📦 <strong>Ship to:</strong> ${esc(order.shippingAddress)}</p>`
+        }
+
+        <p style="color:#555;font-size:14px;margin-top:20px">We'll send you another email when your print status changes. If you have any questions, just reply to this email.</p>
         <p style="color:#555;font-size:14px">— The Stratum3D team</p>
       </div>
     `
@@ -110,7 +142,8 @@ export async function sendOrderConfirmationEmail(order: {
 
   // Admin notification (separate — don't fail customer email if this breaks)
   if (ADMIN) {
-    const itemSummary = order.items.map(i => `${esc(i.filename)} (${esc(i.material)} ${esc(i.colour)} ×${i.quantity})`).join(", ");
+    const itemSummary = order.items.map(i => `${esc(i.filename)} (${esc(i.material)} ${esc(i.colour)} ×${i.quantity}${i.removeSupports ? " +supports removed" : ""})`).join(", ");
+    const deliveryInfo = order.shippingMethod === "pickup" ? "📍 Parcel locker pickup" : `📦 Ship to: ${esc(order.shippingAddress)}`;
     const { error: adminErr } = await resend.emails.send({
       from: FROM,
       to: ADMIN,
@@ -120,6 +153,7 @@ export async function sendOrderConfirmationEmail(order: {
           <h2>New order received</h2>
           <p><strong>Customer:</strong> ${esc(order.customerName)} (${esc(order.email)})</p>
           <p><strong>Total:</strong> ${formatAud(order.totalCents)}</p>
+          <p><strong>Delivery:</strong> ${deliveryInfo}</p>
           <p><strong>Items:</strong> ${itemSummary}</p>
           <p><a href="${adminLink}" style="color:#0070f3">View order in admin →</a></p>
         </div>

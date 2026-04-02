@@ -28,12 +28,17 @@ export async function isAdminAuthed(): Promise<boolean> {
   if (!token || token.length !== 64) return false;
 
   const supabase = createAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("admin_sessions")
     .select("id")
     .eq("token", token)
     .gt("expires_at", new Date().toISOString())
     .single();
+
+  if (error) {
+    console.error("[admin-auth] Session check failed:", error.message);
+    return false;
+  }
 
   return !!data;
 }

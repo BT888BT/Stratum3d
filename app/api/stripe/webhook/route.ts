@@ -72,12 +72,19 @@ export async function POST(request: Request) {
             filename: qi.original_filename ?? "Unknown file",
             material: qi.material ?? "—",
             colour: qi.colour ?? "—",
+            layerHeightMm: qi.layer_height_mm ?? 0.2,
+            infillPercent: qi.infill_percent ?? 20,
             quantity: qi.quantity ?? 1,
+            removeSupports: (qi.shipping_method === "supports_removed"),
+            lineTotalCents: qi.line_total_cents ?? 0,
           }));
 
           if (items.length === 0) {
-            items.push({ filename: "3D Print", material: "—", colour: "—", quantity: 1 });
+            items.push({ filename: "3D Print", material: "—", colour: "—", layerHeightMm: 0.2, infillPercent: 20, quantity: 1, removeSupports: false, lineTotalCents: 0 });
           }
+
+          // Determine shipping method from shipping cost
+          const isPickup = order.shipping_cents === 500;
 
           await sendOrderConfirmationEmail({
             id: order.id,
@@ -89,6 +96,7 @@ export async function POST(request: Request) {
             shippingCents: order.shipping_cents,
             gstCents: order.gst_cents,
             items,
+            shippingMethod: isPickup ? "pickup" : "shipping",
             shippingAddress: [
               order.shipping_address_line1,
               order.shipping_address_line2,

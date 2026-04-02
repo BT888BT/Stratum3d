@@ -329,35 +329,45 @@ export default function QuoteForm() {
                   {/* Settings grid */}
                   <div className="file-settings-grid" style={{ padding: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 70px 70px", gap: 10 }}>
                     {[
-                      { label: "Material", content: (
+                      { label: "Material", helpId: "material", content: (
                         <select value={item.material} onChange={e => updateItem(item.id, { material: e.target.value as "PLA"|"PETG"|"ABS" })} className="input-field" style={{ fontSize: 12 }}>
                           <option value="PLA">PLA</option><option value="PETG">PETG</option><option value="ABS">ABS</option>
                         </select>
                       )},
-                      { label: "Colour", content: (
+                      { label: "Colour", helpId: "colour", content: (
                         <select value={item.colour} onChange={e => updateItem(item.id, { colour: e.target.value })} className="input-field" style={{ fontSize: 12 }}>
                           {colours.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                           {colours.length === 0 && <option value="Black">Black</option>}
                         </select>
                       )},
-                      { label: "Layer", content: (
+                      { label: "Layer", helpId: "layer-height", content: (
                         <select value={item.layerHeightMm} onChange={e => updateItem(item.id, { layerHeightMm: parseFloat(e.target.value) })} className="input-field" style={{ fontSize: 12 }}>
                           {LAYER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
                       )},
-                      { label: "Infill", content: (
+                      { label: "Infill", helpId: "infill", content: (
                         <select value={item.infillPercent} onChange={e => updateItem(item.id, { infillPercent: parseInt(e.target.value) })} className="input-field" style={{ fontSize: 12 }}>
                           {INFILL_OPTIONS.map(v => <option key={v} value={v}>{v}%</option>)}
                         </select>
                       )},
-                      { label: "Qty", content: (
+                      { label: "Qty", helpId: "", content: (
                         <input type="number" min={1} max={100} value={item.quantity}
                           onChange={e => updateItem(item.id, { quantity: parseInt(e.target.value) || 1 })}
                           className="input-field" style={{ fontSize: 12 }} />
                       )},
-                    ].map(({ label, content }) => (
+                    ].map(({ label, helpId, content }) => (
                       <label key={label} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <span style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</span>
+                        <span style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.1em", display: "flex", alignItems: "center", gap: 4 }}>
+                          {label}
+                          {helpId && (
+                            <a href={`/guide#${helpId}`} target="_blank" rel="noopener noreferrer"
+                              title={`What is ${label.toLowerCase()}?`}
+                              style={{ color: "var(--muted)", fontSize: 11, lineHeight: 1, textDecoration: "none", opacity: 0.5, transition: "opacity 0.15s" }}
+                              onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                              onMouseLeave={e => (e.currentTarget.style.opacity = "0.5")}
+                            >?</a>
+                          )}
+                        </span>
                         {content}
                       </label>
                     ))}

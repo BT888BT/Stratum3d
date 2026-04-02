@@ -3,8 +3,54 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Stratum3D — Local 3D Printing",
-  description: "Affordable local 3D printing for hobbyists and makers. Upload your STL, get an instant quote, and we'll print and ship it fast."
+  title: "Stratum3D — Affordable 3D Printing Perth | Local FDM Print Service",
+  description: "Local 3D printing service in Perth, Australia. Affordable FDM printing in PLA, PETG & ABS for hobbyists, makers and small projects. Upload your STL, get an instant quote, fast turnaround.",
+  keywords: "3D printing Perth, 3D print service Perth, affordable 3D printing, FDM printing Perth, PLA printing Perth, hobby 3D printing Australia, 3D printing service Western Australia, custom 3D prints Perth, STL printing, local 3D printing, cheap 3D printing Perth",
+  icons: {
+    icon: "/favicon.svg",
+  },
+  openGraph: {
+    title: "Stratum3D — Affordable 3D Printing Perth",
+    description: "Local FDM printing for hobbyists and makers. Upload your STL, get an instant quote, fast turnaround. PLA, PETG & ABS.",
+    url: "https://www.stratum3d.com.au",
+    siteName: "Stratum3D",
+    locale: "en_AU",
+    type: "website",
+  },
+  alternates: {
+    canonical: "https://www.stratum3d.com.au",
+  },
+};
+
+// Structured data for Google — LocalBusiness + 3D printing service
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  name: "Stratum3D",
+  description: "Affordable local 3D printing service in Perth, Western Australia. FDM printing in PLA, PETG & ABS for hobbyists, makers and small projects.",
+  url: "https://www.stratum3d.com.au",
+  areaServed: {
+    "@type": "State",
+    name: "Western Australia",
+    containedInPlace: { "@type": "Country", name: "Australia" },
+  },
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: "Perth",
+    addressRegion: "WA",
+    addressCountry: "AU",
+  },
+  priceRange: "$",
+  serviceType: ["3D Printing", "FDM Printing", "Rapid Prototyping", "Custom 3D Prints"],
+  hasOfferCatalog: {
+    "@type": "OfferCatalog",
+    name: "3D Printing Materials",
+    itemListElement: [
+      { "@type": "Offer", itemOffered: { "@type": "Service", name: "PLA 3D Printing" } },
+      { "@type": "Offer", itemOffered: { "@type": "Service", name: "PETG 3D Printing" } },
+      { "@type": "Offer", itemOffered: { "@type": "Service", name: "ABS 3D Printing" } },
+    ],
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -12,6 +58,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="geo.region" content="AU-WA" />
+        <meta name="geo.placename" content="Perth" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </head>
       <body>
         <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
@@ -61,11 +114,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             display: "flex", flexDirection: "column", alignItems: "center", gap: 10
           }}>
             <div style={{ display: "flex", gap: 20 }}>
+              <Link href="/guide" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.1em" }}>Print Guide</Link>
               <Link href="/privacy" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.1em" }}>Privacy Policy</Link>
               <Link href="/terms" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.1em" }}>Terms of Service</Link>
             </div>
             <span className="font-mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.15em" }}>
-              © {new Date().getFullYear()} STRATUM3D — LOCAL 3D PRINTING SERVICES — AUSTRALIA
+              © {new Date().getFullYear()} STRATUM3D — LOCAL 3D PRINTING SERVICES — PERTH, AUSTRALIA
             </span>
           </footer>
 

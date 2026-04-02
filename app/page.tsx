@@ -14,7 +14,7 @@ const steps = [
 ];
 
 const perks = [
-  { icon: "📍", title: "Local & Australian", desc: "Based in Australia — shorter shipping, local support, no overseas delays" },
+  { icon: "📍", title: "Local & Australian", desc: "Based in Perth, WA — shorter shipping times, local support, no overseas delays" },
   { icon: "⚡", title: "Fast Turnaround", desc: "Most orders printed and shipped within a few business days" },
   { icon: "💰", title: "Hobbyist Friendly", desc: "Low-cost pricing built for makers, hobbyists and small projects" },
   { icon: "📐", title: "Honest Pricing", desc: "Pay for what you print — volume-based quotes with no minimum order" },
@@ -67,7 +67,7 @@ export default function HomePage() {
               maxWidth: 480,
               marginBottom: "clamp(24px, 4vw, 40px)"
             }}>
-              Affordable FDM printing for hobbyists and makers. PLA, PETG & ABS — priced from your actual mesh volume with fast local turnaround.
+              Affordable FDM printing for hobbyists and makers in Perth. PLA, PETG & ABS — priced from your actual mesh volume with fast local turnaround.
             </p>
             <div className="fade-up-4" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <Link href="/quote" className="btn-primary glow-pulse" style={{ fontSize: 16 }}>

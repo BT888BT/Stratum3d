@@ -3,15 +3,15 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Stratum3D — Affordable 3D Printing Perth | Local FDM Print Service",
-  description: "Local 3D printing service in Perth, Australia. Affordable FDM printing in PLA, PETG & ABS for hobbyists, makers and small projects. Upload your STL, get an instant quote, fast turnaround.",
+  title: "Stratum3D — Affordable 3D Printing in Perth | Fast Local FDM Service",
+  description: "Perth's affordable 3D printing service. PLA, PETG & ABS from $12. Upload your STL → instant quote → fast turnaround. Local pickup or shipping Australia-wide.",
   keywords: "3D printing Perth, 3D print service Perth, affordable 3D printing, FDM printing Perth, PLA printing Perth, hobby 3D printing Australia, 3D printing service Western Australia, custom 3D prints Perth, STL printing, local 3D printing, cheap 3D printing Perth",
   icons: {
     icon: "/favicon.svg",
   },
   openGraph: {
-    title: "Stratum3D — Affordable 3D Printing Perth",
-    description: "Local FDM printing for hobbyists and makers. Upload your STL, get an instant quote, fast turnaround. PLA, PETG & ABS.",
+    title: "Stratum3D — Affordable 3D Printing in Perth",
+    description: "Perth's affordable 3D printing. PLA, PETG & ABS from $12. Upload → quote → print. Fast local turnaround.",
     url: "https://www.stratum3d.com.au",
     siteName: "Stratum3D",
     locale: "en_AU",
@@ -96,7 +96,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 </span>
               </Link>
 
-              <nav style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <nav style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <Link href="/gallery" style={{ fontSize: 13, color: "var(--text-dim)", textDecoration: "none", transition: "color 0.15s" }}
+                  onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.color = "var(--text)")}
+                  onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.color = "var(--text-dim)")}
+                >Gallery</Link>
                 <Link href="/quote" className="btn-primary" style={{ fontSize: 14, padding: "8px 20px" }}>
                   Get Quote
                 </Link>

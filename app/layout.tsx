@@ -1,6 +1,7 @@
 import "./globals.css";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: "Stratum3D — Affordable 3D Printing in Perth | Fast Local FDM Service",
@@ -125,6 +126,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           </footer>
 
         </div>
+        <SpeedInsights />
       </body>
     </html>
   );

@@ -138,7 +138,7 @@ export default function GalleryPage() {
             onMouseLeave={e => { e.currentTarget.style.opacity = "0.4"; e.currentTarget.style.transform = "scale(1)"; }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={prevImg.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }} />
+            <img src={prevImg.url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
           </div>
         )}
 
@@ -159,8 +159,7 @@ export default function GalleryPage() {
             style={{
               width: "100%",
               height: "100%",
-              objectFit: "cover",
-              objectPosition: "center",
+              objectFit: "contain",
               display: "block",
             }}
           />
@@ -195,7 +194,7 @@ export default function GalleryPage() {
             onMouseLeave={e => { e.currentTarget.style.opacity = "0.4"; e.currentTarget.style.transform = "scale(1)"; }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={nextImg.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }} />
+            <img src={nextImg.url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
           </div>
         )}
       </div>

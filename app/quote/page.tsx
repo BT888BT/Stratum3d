@@ -1,4 +1,11 @@
 import QuoteForm from "@/components/forms/quote-form";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Get a Quote — Stratum3D",
+  robots: { index: false, follow: false },
+};
+
 export default function QuotePage() {
   return (
     <div>

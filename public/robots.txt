@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /quote
+Disallow: /quote/
+Disallow: /login
+Disallow: /login/
+Disallow: /checkout
+Disallow: /checkout/
+Disallow: /api/
+
+Sitemap: https://www.stratum3d.com.au/sitemap.xml

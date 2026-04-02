@@ -374,7 +374,7 @@ export default function QuoteForm() {
                       </label>
                       <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.5 }}>
                         {item.removeSupports
-                          ? "We'll clean and remove all support structures before shipping."
+                          ? "We'll clean and remove all support structures before shipping. A 20% surcharge applies for support removal and cleanup on this item."
                           : "Supports left on — faster processing, lower cost. You remove them yourself."}
                       </p>
                     </div>
@@ -415,8 +415,8 @@ export default function QuoteForm() {
                       onChange={() => { setShippingMethod("pickup"); setQuote(null); }}
                       style={{ accentColor: "var(--orange)", marginTop: 2 }} />
                     <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Local pickup — free</p>
-                      <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Collect from a local address (to be confirmed after order)</p>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Parcel locker pickup — $5.00</p>
+                      <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Dropped to parcel locker at Stirling Central Shopping Centre, 478 Wanneroo Rd, Westminster WA 6061</p>
                     </div>
                   </label>
                 </div>
@@ -478,7 +478,7 @@ export default function QuoteForm() {
 
             {shippingMethod === "pickup" && (
               <div style={{ padding: "10px 14px", background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.2)", borderRadius: 8, fontSize: 13, color: "var(--text-dim)", lineHeight: 1.6 }}>
-                📍 Local pickup — we&apos;ll confirm the collection address by email once your order is placed.
+                📍 Parcel locker pickup — Stirling Central Shopping Centre, 478 Wanneroo Rd, Westminster WA 6061. We&apos;ll email you when your order is ready for collection.
               </div>
             )}
 
@@ -523,23 +523,13 @@ export default function QuoteForm() {
                     </div>
                     <span className="font-mono" style={{ fontSize: 14, color: "var(--orange)", flexShrink: 0, marginLeft: 12 }}>{formatAud(item.itemTotalCents)}</span>
                   </div>
-                  {/* Per-item breakdown */}
-                  <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
-                    <MiniRow label="Material" value={formatAud(item.materialCostCents)} />
-                    <MiniRow label="Machine time" value={formatAud(item.machineCostCents)} />
-                    <MiniRow label="Setup" value={formatAud(item.setupFeeCents)} />
-                    {item.supportRemovalCents > 0 && (
-                      <MiniRow label="Support removal" value={formatAud(item.supportRemovalCents)} />
-                    )}
-                  </div>
                 </div>
               ))}
 
               <hr className="divider" />
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <Row label="Printing" value={formatAud(quote.subtotalCents)} />
-                <Row label={shippingMethod === "pickup" ? "Pickup (free)" : "Shipping (Aus Post)"} value={formatAud(quote.shippingCents)} />
+                <Row label={shippingMethod === "pickup" ? "Parcel locker pickup" : "Shipping (Australia Post)"} value={formatAud(quote.shippingCents)} />
                 <Row label="GST (10%)" value={formatAud(quote.gstCents)} />
               </div>
 
@@ -568,11 +558,3 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MiniRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between" }}>
-      <span style={{ fontSize: 10, color: "var(--muted)" }}>{label}</span>
-      <span className="font-mono" style={{ fontSize: 10, color: "var(--text-dim)" }}>{value}</span>
-    </div>
-  );
-}

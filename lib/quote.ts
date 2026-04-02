@@ -120,7 +120,7 @@ export function calculateItemQuote(
 
 export function sumQuote(items: ItemQuoteResult[], shippingMethod: string): QuoteResult {
   const subtotalCents = items.reduce((s, i) => s + i.itemTotalCents, 0);
-  const shippingCents = shippingMethod === "pickup" ? 0 : 1500;
+  const shippingCents = shippingMethod === "pickup" ? 500 : 1500;
   const gstCents = Math.round((subtotalCents + shippingCents) * 0.1);
   const totalCents = subtotalCents + shippingCents + gstCents;
   return { items, subtotalCents, shippingCents, gstCents, totalCents };

@@ -17,17 +17,19 @@ interface QuoteFileItem {
   quantity: number;
   layerHeightMm: number;
   infillPercent: number;
+  removeSupports: boolean;
 }
 
 interface QuoteRequestBody {
   customerName: string;
   email: string;
-  shippingAddressLine1: string;
+  shippingMethod: string;
+  shippingAddressLine1?: string;
   shippingAddressLine2?: string;
-  shippingCity: string;
-  shippingState: string;
-  shippingPostcode: string;
-  shippingCountry: string;
+  shippingCity?: string;
+  shippingState?: string;
+  shippingPostcode?: string;
+  shippingCountry?: string;
   batchId: string;
   items: QuoteFileItem[];
 }
@@ -56,12 +58,13 @@ export async function POST(request: Request) {
     const contactParsed = orderContactSchema.safeParse({
       customerName: body.customerName,
       email: body.email,
+      shippingMethod: body.shippingMethod || "shipping",
       shippingAddressLine1: body.shippingAddressLine1,
       shippingAddressLine2: body.shippingAddressLine2,
       shippingCity: body.shippingCity,
       shippingState: body.shippingState,
       shippingPostcode: body.shippingPostcode,
-      shippingCountry: body.shippingCountry,
+      shippingCountry: body.shippingCountry ?? "AU",
     });
 
     if (!contactParsed.success) {
@@ -124,6 +127,7 @@ export async function POST(request: Request) {
         quantity: item.quantity,
         layerHeightMm: item.layerHeightMm,
         infillPercent: item.infillPercent,
+        removeSupports: item.removeSupports ?? false,
       });
 
       if (!settingsParsed.success) {
@@ -188,7 +192,7 @@ export async function POST(request: Request) {
     const itemQuotes = validatedItems.map(({ item, settings, volumeMm3 }) =>
       calculateItemQuote(settings, volumeMm3, item.originalFilename)
     );
-    const quote = sumQuote(itemQuotes);
+    const quote = sumQuote(itemQuotes, contact.shippingMethod ?? "shipping");
 
     // #6: Generate a one-time checkout token
     const checkoutToken = crypto.randomBytes(32).toString("hex");

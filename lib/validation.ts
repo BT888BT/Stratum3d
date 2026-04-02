@@ -10,18 +10,21 @@ export const fileItemSchema = z.object({
   quantity: z.coerce.number().int().min(1).max(100),
   layerHeightMm: z.coerce.number().min(0.08).max(0.4),
   infillPercent: z.coerce.number().int().min(5).max(100),
+  removeSupports: z.boolean().default(false),
 });
 
-// Contact + address (top-level, shared across all files)
+// Contact (always required)
 export const orderContactSchema = z.object({
   customerName: z.string().min(2).max(120),
   email: z.email(),
-  shippingAddressLine1: z.string().min(3).max(200),
+  shippingMethod: z.enum(["shipping", "pickup"]),
+  // Address fields required only for shipping — validated in the API route
+  shippingAddressLine1: z.string().max(200).optional().or(z.literal("")),
   shippingAddressLine2: z.string().max(100).optional().or(z.literal("")),
-  shippingCity: z.string().min(2).max(100),
-  shippingState: z.string().min(2).max(10),
-  shippingPostcode: z.string().regex(/^\d{4}$/, "Must be a 4-digit Australian postcode"),
-  shippingCountry: z.literal("AU"),
+  shippingCity: z.string().max(100).optional().or(z.literal("")),
+  shippingState: z.string().max(10).optional().or(z.literal("")),
+  shippingPostcode: z.string().max(10).optional().or(z.literal("")),
+  shippingCountry: z.literal("AU").optional(),
 });
 
 export type FileItemInput = z.infer<typeof fileItemSchema>;

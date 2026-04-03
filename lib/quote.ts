@@ -10,6 +10,7 @@ import type { QuoteInputParsed } from "@/lib/validation";
  * 5. Support removal = 20% surcharge on (material + machine) if requested
  * 6. Minimum per line item
  * 7. GST 10%, shipping $15 AUD or $0 for pickup
+ * 8. PRICE_MULTIPLIER env var scales the final item total (e.g. 0.9 = 10% discount)
  */
 
 type MaterialConfig = {
@@ -98,7 +99,8 @@ export function calculateItemQuote(
 
   const rawTotal = materialCostCents + machineCostCents + setupFeeCents + supportRemovalCents;
 
-  const itemTotalCents = Math.max(rawTotal, cfg.minimumLineCents);
+  const priceMultiplier = parseFloat(process.env.PRICE_MULTIPLIER ?? "1");
+  const itemTotalCents = Math.max(Math.round(rawTotal * priceMultiplier), cfg.minimumLineCents);
 
   return {
     filename,

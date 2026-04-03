@@ -150,6 +150,9 @@ export default function GalleryPage() {
           borderRadius: 14,
           overflow: "hidden",
           position: "relative",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -158,7 +161,8 @@ export default function GalleryPage() {
             alt={currImg.caption || "3D printed part"}
             style={{
               width: "100%",
-              height: "100%",
+              height: "auto",
+              maxHeight: "clamp(280px, 50vw, 500px)",
               objectFit: "contain",
               display: "block",
             }}

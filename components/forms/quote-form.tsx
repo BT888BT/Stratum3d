@@ -14,7 +14,7 @@ const LAYER_OPTIONS = [
 const INFILL_OPTIONS = [10, 15, 20, 30, 40, 50, 75, 100];
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-type Colour = { id: string; name: string; hex: string; available: boolean };
+type Colour = { id: string; name: string; hex: string; available: boolean; materials: string[] | null };
 type FileItem = {
   id: string; file: File;
   material: "PLA" | "PETG" | "ABS";
@@ -59,7 +59,7 @@ export default function QuoteForm() {
 
   useEffect(() => {
     fetch("/api/colours").then(r => r.json())
-      .then((d: Colour[]) => setColours(d.filter(c => c.available)))
+      .then((d: Colour[]) => setColours(d))
       .catch(() => {});
   }, []);
 
@@ -81,7 +81,7 @@ export default function QuoteForm() {
 
   async function addFiles(fl: FileList | null) {
     if (!fl) return;
-    const def = colours.find(c => c.available)?.name ?? "Black";
+    const def = colours.find(c => c.available && (c.materials === null || c.materials.includes("PLA")))?.name ?? "Black";
     const stlFiles = Array.from(fl).filter(f => f.name.toLowerCase().endsWith(".stl"));
     if (stlFiles.length === 0) { setError("Only .stl files are accepted."); return; }
 
@@ -103,8 +103,25 @@ export default function QuoteForm() {
 
   function removeItem(id: string) { setItems(p => p.filter(x => x.id !== id)); setQuote(null); }
   function updateItem(id: string, patch: Partial<FileItem>) {
-    setItems(p => p.map(x => x.id === id ? { ...x, ...patch } : x));
-    setQuote(null); // Settings changed — quote no longer valid
+    setItems(p => p.map(x => {
+      if (x.id !== id) return x;
+      const updated = { ...x, ...patch };
+      // If material changed, check if current colour is still valid for it
+      if (patch.material && patch.material !== x.material) {
+        const colourStillValid = colours.some(c =>
+          c.name === updated.colour && c.available &&
+          (c.materials === null || c.materials.includes(patch.material!))
+        );
+        if (!colourStillValid) {
+          const fallback = colours.find(c =>
+            c.available && (c.materials === null || c.materials.includes(patch.material!))
+          );
+          updated.colour = fallback?.name ?? updated.colour;
+        }
+      }
+      return updated;
+    }));
+    setQuote(null);
   }
 
   // ── Phase 1: Calculate quote (files + settings only, no contact info) ──
@@ -336,7 +353,16 @@ export default function QuoteForm() {
                       )},
                       { label: "Colour", helpId: "colour", content: (
                         <select value={item.colour} onChange={e => updateItem(item.id, { colour: e.target.value })} className="input-field" style={{ fontSize: 12 }}>
-                          {colours.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                          {colours.map(c => {
+                            const materialOk = c.materials === null || c.materials.includes(item.material);
+                            const selectable = c.available && materialOk;
+                            return (
+                              <option key={c.id} value={c.name} disabled={!selectable}
+                                style={{ color: selectable ? "inherit" : "#666" }}>
+                                {c.name}{!selectable ? " (unavailable)" : ""}
+                              </option>
+                            );
+                          })}
                           {colours.length === 0 && <option value="Black">Black</option>}
                         </select>
                       )},

@@ -14,10 +14,10 @@ const steps = [
 ];
 
 const perks = [
-  { icon: "📍", title: "Local & Australian", desc: "Based in Perth, WA — shorter shipping times, local support, no overseas delays" },
-  { icon: "⚡", title: "Fast Turnaround", desc: "Most orders printed and shipped within a few business days" },
-  { icon: "💰", title: "Hobbyist Friendly", desc: "Low-cost pricing built for makers, hobbyists and small projects" },
-  { icon: "📐", title: "Honest Pricing", desc: "Pay for what you print — volume-based quotes with no minimum order" },
+  { title: "Local & Australian", desc: "Based in Perth, WA — shorter shipping times, local support, no overseas delays" },
+  { title: "Fast Turnaround", desc: "Most orders printed and shipped within a few business days" },
+  { title: "Hobbyist Friendly", desc: "Low-cost pricing built for makers, hobbyists and small projects" },
+  { title: "Honest Pricing", desc: "Pay for what you print — volume-based quotes with no minimum order" },
 ];
 
 export default function HomePage() {
@@ -136,7 +136,7 @@ export default function HomePage() {
       {/* ── Why Stratum3D ── */}
       <section>
         <span className="eyebrow" style={{ marginBottom: 12 }}>Why Us</span>
-        <h2 className="font-display" style={{ fontSize: "clamp(32px, 5vw, 52px)", marginBottom: "clamp(20px, 3vw, 36px)" }}>
+        <h2 className="font-display" style={{ fontSize: "clamp(32px, 5vw, 52px)", marginBottom: "clamp(12px, 2vw, 20px)" }}>
           BUILT FOR MAKERS
         </h2>
         <div style={{
@@ -146,7 +146,6 @@ export default function HomePage() {
         }}>
           {perks.map((p) => (
             <div key={p.title} className="card">
-              <div style={{ fontSize: 24, marginBottom: 12 }}>{p.icon}</div>
               <h3 className="font-display" style={{ fontSize: 20, color: "var(--orange)", marginBottom: 8 }}>{p.title}</h3>
               <p style={{ fontSize: 13, color: "var(--text-dim)", lineHeight: 1.65 }}>{p.desc}</p>
             </div>
@@ -157,7 +156,7 @@ export default function HomePage() {
       {/* ── How it works ── */}
       <section id="how-it-works">
         <span className="eyebrow" style={{ marginBottom: 12 }}>Process</span>
-        <h2 className="font-display" style={{ fontSize: "clamp(32px, 5vw, 52px)", marginBottom: "clamp(20px, 3vw, 36px)" }}>
+        <h2 className="font-display" style={{ fontSize: "clamp(32px, 5vw, 52px)", marginBottom: "clamp(12px, 2vw, 20px)" }}>
           HOW IT WORKS
         </h2>
         <div style={{
@@ -185,7 +184,7 @@ export default function HomePage() {
       {/* ── Materials ── */}
       <section>
         <span className="eyebrow" style={{ marginBottom: 12 }}>Materials</span>
-        <h2 className="font-display" style={{ fontSize: "clamp(32px, 5vw, 52px)", marginBottom: "clamp(20px, 3vw, 36px)" }}>
+        <h2 className="font-display" style={{ fontSize: "clamp(32px, 5vw, 52px)", marginBottom: "clamp(12px, 2vw, 20px)" }}>
           AVAILABLE MATERIALS
         </h2>
         <div style={{

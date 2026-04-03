@@ -21,7 +21,7 @@ type MaterialConfig = {
   minimumLineCents: number;
 };
 
-const MINIMUM_LINE_CENTS = parseInt(process.env.MINIMUM_LINE_CENTS ?? "1200");
+const MINIMUM_LINE_CENTS = parseInt(process.env.MINIMUM_LINE_CENTS ?? "100");
 
 const MATERIALS: Record<string, MaterialConfig> = {
   PLA:  { densityGPerCm3: 1.24, filamentCostPerGramCents: 6,  machineRatePerHourCents: 450, setupFeeCents: 200, minimumLineCents: MINIMUM_LINE_CENTS },
@@ -85,9 +85,12 @@ export function calculateItemQuote(
     solidVolumeCm3 * (shellFraction + (1 - shellFraction) * infillFraction) * supportFactor
   );
 
-  // Pricing volume applies sqrt scaling so cost grows sub-linearly with size.
-  // Large items get a discount; small items are largely unaffected.
-  const pricingVolumeCm3 = Math.sqrt(printedVolumeCm3);
+  // Pricing volume scales sub-linearly with size:
+  //   small items (→0 cm³) → no reduction (linear)
+  //   large items (→∞ cm³) → approaches 50% of linear
+  // VOLUME_SCALE_REF_CM3 is the midpoint — ~25% discount at that volume.
+  const VOLUME_SCALE_REF_CM3 = 50;
+  const pricingVolumeCm3 = printedVolumeCm3 * (VOLUME_SCALE_REF_CM3 + 0.5 * printedVolumeCm3) / (VOLUME_SCALE_REF_CM3 + printedVolumeCm3);
 
   const weightPerUnitGrams = parseFloat((pricingVolumeCm3 * cfg.densityGPerCm3).toFixed(1));
 

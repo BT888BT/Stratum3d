@@ -21,10 +21,12 @@ type MaterialConfig = {
   minimumLineCents: number;
 };
 
+const MINIMUM_LINE_CENTS = parseInt(process.env.MINIMUM_LINE_CENTS ?? "1200");
+
 const MATERIALS: Record<string, MaterialConfig> = {
-  PLA:  { densityGPerCm3: 1.24, filamentCostPerGramCents: 6,  machineRatePerHourCents: 450, setupFeeCents: 200, minimumLineCents: 1200 },
-  PETG: { densityGPerCm3: 1.27, filamentCostPerGramCents: 8,  machineRatePerHourCents: 500, setupFeeCents: 200, minimumLineCents: 1500 },
-  ABS:  { densityGPerCm3: 1.04, filamentCostPerGramCents: 9,  machineRatePerHourCents: 550, setupFeeCents: 200, minimumLineCents: 1800 },
+  PLA:  { densityGPerCm3: 1.24, filamentCostPerGramCents: 6,  machineRatePerHourCents: 450, setupFeeCents: 200, minimumLineCents: MINIMUM_LINE_CENTS },
+  PETG: { densityGPerCm3: 1.27, filamentCostPerGramCents: 8,  machineRatePerHourCents: 500, setupFeeCents: 200, minimumLineCents: MINIMUM_LINE_CENTS },
+  ABS:  { densityGPerCm3: 1.04, filamentCostPerGramCents: 9,  machineRatePerHourCents: 550, setupFeeCents: 200, minimumLineCents: MINIMUM_LINE_CENTS },
 };
 
 function estimatePrintTimeMinutes(

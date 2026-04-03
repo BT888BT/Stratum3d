@@ -306,8 +306,9 @@ export default function QuoteForm() {
               onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--orange)"; e.currentTarget.style.background = "rgba(249,115,22,0.04)"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-hi)"; e.currentTarget.style.background = "var(--bg2)"; }}
             >
-              <span style={{ fontSize: 32, opacity: 0.5 }}>⬆</span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Click or drop STL files</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 28, opacity: 0.5 }}>⬆</span> Click or drop STL files
+              </span>
               <span style={{ fontSize: 11, color: "var(--muted)", textAlign: "center" }}>STL only · max 50 MB per file · multiple files OK</span>
               <input type="file" accept=".stl" multiple onChange={e => addFiles(e.target.files)} style={{ display: "none" }} />
             </label>
@@ -451,7 +452,7 @@ export default function QuoteForm() {
                       onChange={() => { setShippingMethod("pickup"); setQuote(null); }}
                       style={{ accentColor: "var(--orange)", marginTop: 2 }} />
                     <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Parcel locker pickup — $5.00</p>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Parcel locker pickup — $2.50</p>
                       <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Dropped to parcel locker at Stirling Central Shopping Centre, 478 Wanneroo Rd, Westminster WA 6061</p>
                     </div>
                   </label>

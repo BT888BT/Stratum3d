@@ -79,16 +79,21 @@ export function calculateItemQuote(
 
   const shellFraction = 0.30;
   const infillFraction = input.infillPercent / 100;
+  const supportFactor = input.removeSupports ? 1.20 : 1.0;
   const printedVolumeCm3 = Math.max(
     0.5,
-    solidVolumeCm3 * (shellFraction + (1 - shellFraction) * infillFraction) * 1.20
+    solidVolumeCm3 * (shellFraction + (1 - shellFraction) * infillFraction) * supportFactor
   );
 
-  const weightPerUnitGrams = parseFloat((printedVolumeCm3 * cfg.densityGPerCm3).toFixed(1));
+  // Pricing volume applies sqrt scaling so cost grows sub-linearly with size.
+  // Large items get a discount; small items are largely unaffected.
+  const pricingVolumeCm3 = Math.sqrt(printedVolumeCm3);
+
+  const weightPerUnitGrams = parseFloat((pricingVolumeCm3 * cfg.densityGPerCm3).toFixed(1));
 
   const materialCostCents = Math.round(weightPerUnitGrams * cfg.filamentCostPerGramCents) * input.quantity;
 
-  const printTimePerUnit = estimatePrintTimeMinutes(printedVolumeCm3, input.layerHeightMm, input.infillPercent);
+  const printTimePerUnit = estimatePrintTimeMinutes(pricingVolumeCm3, input.layerHeightMm, input.infillPercent);
 
   const machineCostCents = Math.round((printTimePerUnit / 60) * cfg.machineRatePerHourCents) * input.quantity;
 
@@ -124,7 +129,7 @@ export function calculateItemQuote(
 
 export function sumQuote(items: ItemQuoteResult[], shippingMethod: string): QuoteResult {
   const subtotalCents = items.reduce((s, i) => s + i.itemTotalCents, 0);
-  const shippingCents = shippingMethod === "pickup" ? 500 : 1500;
+  const shippingCents = shippingMethod === "pickup" ? 250 : 1500;
   const gstCents = Math.round((subtotalCents + shippingCents) * 0.1);
   const totalCents = subtotalCents + shippingCents + gstCents;
   return { items, subtotalCents, shippingCents, gstCents, totalCents };

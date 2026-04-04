@@ -216,12 +216,27 @@ export default async function AdminOrderDetailPage({
                     <SpecCell label="Est. print time" value={qi.estimated_print_time_minutes ? `${qi.estimated_print_time_minutes} min` : "—"} />
                   </div>
 
-                  {/* Storage path (small, for admin reference) */}
+                  {/* Storage path + download */}
                   {matchedFile && (
-                    <div style={{ padding: "6px 16px 10px", borderTop: "1px solid var(--border)" }}>
-                      <span className="font-mono" style={{ fontSize: 10, color: "var(--muted)" }}>
+                    <div style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "6px 16px 10px", borderTop: "1px solid var(--border)", gap: 12
+                    }}>
+                      <span className="font-mono" style={{ fontSize: 10, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {matchedFile.storage_path}
                       </span>
+                      <a
+                        href={`/api/admin/orders/${order.id}/files/${matchedFile.id}/download`}
+                        download
+                        style={{
+                          flexShrink: 0, fontSize: 11, fontWeight: 600,
+                          color: "var(--accent)", textDecoration: "none",
+                          padding: "3px 10px", border: "1px solid var(--accent)",
+                          borderRadius: 4, lineHeight: 1.6
+                        }}
+                      >
+                        Download STL
+                      </a>
                     </div>
                   )}
                 </div>

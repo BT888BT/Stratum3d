@@ -8,7 +8,8 @@ import type { QuoteInputParsed } from "@/lib/validation";
  * 3. Machine cost = print time × machine $/hr × quantity
  * 4. Setup fee = per line item (once, not per unit)
  * 5. Support removal = 20% surcharge on (material + machine) if requested
- * 6. Minimum per line item
+ * 6. Height surcharge = 0/5/10/15% on (material + machine) for ≤50/≤100/≤200/>200 mm tall models
+ * 7. Minimum per line item
  * 7. GST 10%, shipping $15 AUD or $0 for pickup
  * 8. PRICE_MULTIPLIER env var scales the final item total (e.g. 0.9 = 10% discount)
  */
@@ -60,6 +61,7 @@ export type ItemQuoteResult = {
   machineCostCents: number;
   setupFeeCents: number;
   supportRemovalCents: number;
+  heightSurchargeCents: number;
   itemTotalCents: number;
 };
 
@@ -71,10 +73,25 @@ export type QuoteResult = {
   totalCents: number;
 };
 
+/**
+ * Height surcharge tiers (applied to material + machine costs):
+ *   ≤ 50 mm  → 0%
+ *   51–100 mm → 5%
+ *   101–200 mm → 10%
+ *   > 200 mm  → 15%
+ */
+function heightSurchargeFactor(heightMm: number): number {
+  if (heightMm <= 50)  return 0;
+  if (heightMm <= 100) return 0.05;
+  if (heightMm <= 200) return 0.10;
+  return 0.15;
+}
+
 export function calculateItemQuote(
   input: QuoteInputParsed,
   volumeMm3: number,
-  filename: string
+  filename: string,
+  heightMm = 0
 ): ItemQuoteResult {
   const cfg = MATERIALS[input.material] ?? MATERIALS.PLA;
 
@@ -100,7 +117,12 @@ export function calculateItemQuote(
     ? Math.round((materialCostCents + machineCostCents) * 0.20)
     : 0;
 
-  const rawTotal = materialCostCents + machineCostCents + setupFeeCents + supportRemovalCents;
+  // Height surcharge: tall models take longer to print due to more layers
+  const heightSurchargeCents = Math.round(
+    (materialCostCents + machineCostCents) * heightSurchargeFactor(heightMm)
+  );
+
+  const rawTotal = materialCostCents + machineCostCents + setupFeeCents + supportRemovalCents + heightSurchargeCents;
 
   const priceMultiplier = parseFloat(process.env.PRICE_MULTIPLIER ?? "1");
   const itemTotalCents = Math.max(Math.round(rawTotal * priceMultiplier), cfg.minimumLineCents);
@@ -119,6 +141,7 @@ export function calculateItemQuote(
     machineCostCents,
     setupFeeCents,
     supportRemovalCents,
+    heightSurchargeCents,
     itemTotalCents,
   };
 }

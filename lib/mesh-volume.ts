@@ -1,8 +1,11 @@
 /**
- * Volume calculation using the divergence theorem.
+ * Volume + bounding-box calculation using the divergence theorem.
  * For each triangle (A, B, C): signedVol = (A · (B × C)) / 6
  * Sum and abs() → total solid volume in mm³.
+ * heightMm is the Z-axis extent (max Z − min Z), used for height-based pricing.
  */
+
+export type MeshData = { volumeMm3: number; heightMm: number };
 
 function signedTriVolume(
   ax: number, ay: number, az: number,
@@ -17,10 +20,11 @@ function signedTriVolume(
 }
 
 // ── Binary STL ───────────────────────────────────────────────────────────────
-function volumeFromBinarySTL(buf: ArrayBuffer): number {
+function meshDataFromBinarySTL(buf: ArrayBuffer): MeshData {
   const view = new DataView(buf);
   const triCount = view.getUint32(80, true);
   let vol = 0;
+  let minZ = Infinity, maxZ = -Infinity;
   let offset = 84;
   for (let i = 0; i < triCount; i++) {
     offset += 12; // skip normal
@@ -29,17 +33,28 @@ function volumeFromBinarySTL(buf: ArrayBuffer): number {
     const cx = view.getFloat32(offset + 24, true); const cy = view.getFloat32(offset + 28, true); const cz = view.getFloat32(offset + 32, true);
     offset += 36 + 2;
     vol += signedTriVolume(ax, ay, az, bx, by, bz, cx, cy, cz);
+    if (az < minZ) minZ = az; if (az > maxZ) maxZ = az;
+    if (bz < minZ) minZ = bz; if (bz > maxZ) maxZ = bz;
+    if (cz < minZ) minZ = cz; if (cz > maxZ) maxZ = cz;
   }
-  return Math.abs(vol);
+  return { volumeMm3: Math.abs(vol), heightMm: isFinite(maxZ) ? maxZ - minZ : 0 };
+}
+
+function volumeFromBinarySTL(buf: ArrayBuffer): number {
+  return meshDataFromBinarySTL(buf).volumeMm3;
 }
 
 // ── ASCII STL ────────────────────────────────────────────────────────────────
-function volumeFromASCIISTL(text: string): number {
+function meshDataFromASCIISTL(text: string): MeshData {
   const re = /vertex\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)/g;
   const verts: [number, number, number][] = [];
   let m: RegExpExecArray | null;
+  let minZ = Infinity, maxZ = -Infinity;
   while ((m = re.exec(text)) !== null) {
-    verts.push([parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])]);
+    const z = parseFloat(m[3]);
+    if (z < minZ) minZ = z;
+    if (z > maxZ) maxZ = z;
+    verts.push([parseFloat(m[1]), parseFloat(m[2]), z]);
   }
   let vol = 0;
   for (let i = 0; i + 2 < verts.length; i += 3) {
@@ -48,7 +63,11 @@ function volumeFromASCIISTL(text: string): number {
     const [cx, cy, cz] = verts[i + 2];
     vol += signedTriVolume(ax, ay, az, bx, by, bz, cx, cy, cz);
   }
-  return Math.abs(vol);
+  return { volumeMm3: Math.abs(vol), heightMm: isFinite(maxZ) ? maxZ - minZ : 0 };
+}
+
+function volumeFromASCIISTL(text: string): number {
+  return meshDataFromASCIISTL(text).volumeMm3;
 }
 
 // ── OBJ ──────────────────────────────────────────────────────────────────────
@@ -119,6 +138,25 @@ function volumeFrom3MF(buf: ArrayBuffer): number {
 }
 
 // ── Main: accepts pre-read Buffer (avoids double arrayBuffer() consumption) ──
+
+export function extractMeshDataFromBuffer(buffer: Buffer, filename: string): MeshData {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  const bytes = new Uint8Array(buffer);
+  const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+
+  if (ext === "stl") {
+    const view = new DataView(ab);
+    const triCount = view.getUint32(80, true);
+    const expectedBinarySize = 84 + triCount * 50;
+    const isBinary = Math.abs(buffer.length - expectedBinarySize) < 100;
+    return isBinary
+      ? meshDataFromBinarySTL(ab)
+      : meshDataFromASCIISTL(new TextDecoder().decode(ab));
+  }
+
+  // For OBJ/3MF, height extraction is not implemented — fall back to volume only
+  return { volumeMm3: extractVolumeMm3FromBuffer(buffer, filename), heightMm: 0 };
+}
 
 export function extractVolumeMm3FromBuffer(buffer: Buffer, filename: string): number {
   const ext = filename.split(".").pop()?.toLowerCase();

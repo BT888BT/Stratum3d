@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateItemQuote, sumQuote } from "@/lib/quote";
-import { extractVolumeMm3FromBuffer } from "@/lib/mesh-volume";
+import { extractMeshDataFromBuffer } from "@/lib/mesh-volume";
 import { fileItemSchema, orderContactSchema } from "@/lib/validation";
 import { slugFileName } from "@/lib/utils";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -128,6 +128,7 @@ export async function POST(request: Request) {
       item: QuoteFileItem;
       settings: ReturnType<typeof fileItemSchema.parse>;
       volumeMm3: number;
+      heightMm: number;
       actualSizeBytes: number;
     };
     const validatedItems: ValidatedItem[] = [];
@@ -177,12 +178,15 @@ export async function POST(request: Request) {
         );
       }
 
-      // #1: Recalculate volume SERVER-SIDE — ignore any client-supplied volume
+      // #1: Recalculate volume + height SERVER-SIDE — ignore any client-supplied values
       let volumeMm3: number;
+      let heightMm: number;
       try {
         const arrayBuf = await fileData.arrayBuffer();
         const buffer = Buffer.from(arrayBuf);
-        volumeMm3 = extractVolumeMm3FromBuffer(buffer, item.originalFilename);
+        const meshData = extractMeshDataFromBuffer(buffer, item.originalFilename);
+        volumeMm3 = meshData.volumeMm3;
+        heightMm = meshData.heightMm;
 
         if (!isFinite(volumeMm3) || volumeMm3 <= 0) {
           return NextResponse.json(
@@ -197,12 +201,12 @@ export async function POST(request: Request) {
         );
       }
 
-      validatedItems.push({ item, settings: settingsParsed.data, volumeMm3, actualSizeBytes });
+      validatedItems.push({ item, settings: settingsParsed.data, volumeMm3, heightMm, actualSizeBytes });
     }
 
     // ── Calculate quote from server-derived volumes ─────────
-    const itemQuotes = validatedItems.map(({ item, settings, volumeMm3 }) =>
-      calculateItemQuote(settings, volumeMm3, item.originalFilename)
+    const itemQuotes = validatedItems.map(({ item, settings, volumeMm3, heightMm }) =>
+      calculateItemQuote(settings, volumeMm3, item.originalFilename, heightMm)
     );
     const quote = sumQuote(itemQuotes, contact.shippingMethod ?? "shipping");
 

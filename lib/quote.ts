@@ -23,10 +23,13 @@ type MaterialConfig = {
 
 const MINIMUM_LINE_CENTS = parseInt(process.env.MINIMUM_LINE_CENTS ?? "100");
 
+const MATERIAL_COST_PER_GRAM_CENTS = 4; // $0.04/g = $40/kg
+const MACHINE_RATE_PER_HOUR_CENTS = 500; // $5.00/hr, all materials
+
 const MATERIALS: Record<string, MaterialConfig> = {
-  PLA:  { densityGPerCm3: 1.24, filamentCostPerGramCents: 6,  machineRatePerHourCents: 450, setupFeeCents: 200, minimumLineCents: MINIMUM_LINE_CENTS },
-  PETG: { densityGPerCm3: 1.27, filamentCostPerGramCents: 8,  machineRatePerHourCents: 500, setupFeeCents: 200, minimumLineCents: MINIMUM_LINE_CENTS },
-  ABS:  { densityGPerCm3: 1.04, filamentCostPerGramCents: 9,  machineRatePerHourCents: 550, setupFeeCents: 200, minimumLineCents: MINIMUM_LINE_CENTS },
+  PLA:  { densityGPerCm3: 1.24, filamentCostPerGramCents: MATERIAL_COST_PER_GRAM_CENTS, machineRatePerHourCents: MACHINE_RATE_PER_HOUR_CENTS, setupFeeCents: 200, minimumLineCents: MINIMUM_LINE_CENTS },
+  PETG: { densityGPerCm3: 1.27, filamentCostPerGramCents: MATERIAL_COST_PER_GRAM_CENTS, machineRatePerHourCents: MACHINE_RATE_PER_HOUR_CENTS, setupFeeCents: 200, minimumLineCents: MINIMUM_LINE_CENTS },
+  ABS:  { densityGPerCm3: 1.04, filamentCostPerGramCents: MATERIAL_COST_PER_GRAM_CENTS, machineRatePerHourCents: MACHINE_RATE_PER_HOUR_CENTS, setupFeeCents: 200, minimumLineCents: MINIMUM_LINE_CENTS },
 };
 
 function estimatePrintTimeMinutes(
@@ -77,26 +80,16 @@ export function calculateItemQuote(
 
   const solidVolumeCm3 = volumeMm3 / 1000;
 
-  const shellFraction = 0.30;
+  // volume × infill density × support factor × $0.04/g
   const infillFraction = input.infillPercent / 100;
   const supportFactor = input.removeSupports ? 1.20 : 1.0;
-  const printedVolumeCm3 = Math.max(
-    0.5,
-    solidVolumeCm3 * (shellFraction + (1 - shellFraction) * infillFraction) * supportFactor
-  );
+  const printedVolumeCm3 = Math.max(0.5, solidVolumeCm3 * infillFraction * supportFactor);
 
-  // Pricing volume scales sub-linearly with size:
-  //   small items (→0 cm³) → no reduction (linear)
-  //   large items (→∞ cm³) → approaches 50% of linear
-  // VOLUME_SCALE_REF_CM3 is the midpoint — ~25% discount at that volume.
-  const VOLUME_SCALE_REF_CM3 = 50;
-  const pricingVolumeCm3 = printedVolumeCm3 * (VOLUME_SCALE_REF_CM3 + 0.5 * printedVolumeCm3) / (VOLUME_SCALE_REF_CM3 + printedVolumeCm3);
-
-  const weightPerUnitGrams = parseFloat((pricingVolumeCm3 * cfg.densityGPerCm3).toFixed(1));
+  const weightPerUnitGrams = parseFloat((printedVolumeCm3 * cfg.densityGPerCm3).toFixed(1));
 
   const materialCostCents = Math.round(weightPerUnitGrams * cfg.filamentCostPerGramCents) * input.quantity;
 
-  const printTimePerUnit = estimatePrintTimeMinutes(pricingVolumeCm3, input.layerHeightMm, input.infillPercent);
+  const printTimePerUnit = estimatePrintTimeMinutes(printedVolumeCm3, input.layerHeightMm, input.infillPercent);
 
   const machineCostCents = Math.round((printTimePerUnit / 60) * cfg.machineRatePerHourCents) * input.quantity;
 

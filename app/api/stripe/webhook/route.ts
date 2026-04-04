@@ -30,6 +30,24 @@ export async function POST(request: Request) {
   try {
     const supabase = createAdminClient();
 
+    // #9: Idempotency — check if we've already processed this event
+    const { data: existingEvent } = await supabase
+      .from("processed_webhook_events")
+      .select("id")
+      .eq("stripe_event_id", event.id)
+      .single();
+
+    if (existingEvent) {
+      // Already processed — return 200 so Stripe stops retrying
+      return new Response("ok (duplicate)", { status: 200 });
+    }
+
+    // Record this event as being processed
+    await supabase.from("processed_webhook_events").insert({
+      stripe_event_id: event.id,
+      event_type: event.type,
+    });
+
     // ── Payment completed — confirm order + send email ─────
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
@@ -75,7 +93,8 @@ export async function POST(request: Request) {
             layerHeightMm: qi.layer_height_mm ?? 0.2,
             infillPercent: qi.infill_percent ?? 20,
             quantity: qi.quantity ?? 1,
-            removeSupports: (qi.shipping_method === "supports_removed"),
+            // #10: Use explicit remove_supports field (fall back to old method for existing orders)
+            removeSupports: qi.remove_supports ?? (qi.shipping_method === "supports_removed"),
             lineTotalCents: qi.line_total_cents ?? 0,
           }));
 
@@ -83,8 +102,10 @@ export async function POST(request: Request) {
             items.push({ filename: "3D Print", material: "—", colour: "—", layerHeightMm: 0.2, infillPercent: 20, quantity: 1, removeSupports: false, lineTotalCents: 0 });
           }
 
-          // Determine shipping method from shipping cost
-          const isPickup = order.shipping_cents === 500;
+          // #10: Use explicit delivery_method field (fall back to shipping_cents for existing orders)
+          const isPickup = order.delivery_method
+            ? order.delivery_method === "pickup"
+            : order.shipping_cents === 500;
 
           await sendOrderConfirmationEmail({
             id: order.id,

@@ -71,7 +71,8 @@ export default async function AdminOrderDetailPage({
             <hr className="divider" />
 
             {/* Delivery method indicator */}
-            {order.shipping_cents === 500 ? (
+            {/* #10: Use explicit delivery_method field, fall back to shipping_cents for legacy orders */}
+            {(order.delivery_method === "pickup" || (!order.delivery_method && order.shipping_cents === 500)) ? (
               <>
                 <div style={{
                   display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",

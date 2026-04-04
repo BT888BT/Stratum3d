@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createPublicReadClient } from "@/lib/supabase/public-read";
 
 export async function GET() {
-  const supabase = createAdminClient();
+  const supabase = createPublicReadClient();
   const { data, error } = await supabase
     .from("colours")
     .select("id, name, hex, available, materials")

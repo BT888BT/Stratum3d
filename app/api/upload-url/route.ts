@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { slugFileName } from "@/lib/utils";
 import { isAllowedFile, maxFileSizeBytes } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getTrustedIp, buildRateLimitKey } from "@/lib/trusted-ip";
 
 export const dynamic = "force-dynamic";
 
@@ -10,10 +11,11 @@ const MAX_FILES_PER_BATCH = 10;
 
 export async function POST(request: Request) {
   try {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const ip = getTrustedIp(request);
+    const rateLimitKey = await buildRateLimitKey("upload", request);
 
-    // Persistent rate limit: 20 upload batches per IP per 15 minutes
-    const { allowed } = await checkRateLimit(`upload:${ip}`, 20, 15 * 60 * 1000);
+    // Persistent rate limit: 20 upload batches per IP+UA per 15 minutes
+    const { allowed } = await checkRateLimit(rateLimitKey, 20, 15 * 60 * 1000);
     if (!allowed) {
       return NextResponse.json(
         { error: "Too many upload requests. Please wait a few minutes." },

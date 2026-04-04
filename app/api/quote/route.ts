@@ -6,6 +6,7 @@ import { extractVolumeMm3FromBuffer } from "@/lib/mesh-volume";
 import { fileItemSchema, orderContactSchema } from "@/lib/validation";
 import { slugFileName } from "@/lib/utils";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getTrustedIp, buildRateLimitKey } from "@/lib/trusted-ip";
 
 export const dynamic = "force-dynamic";
 
@@ -36,10 +37,11 @@ interface QuoteRequestBody {
 
 export async function POST(request: Request) {
   try {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const ip = getTrustedIp(request);
+    const rateLimitKey = await buildRateLimitKey("quote", request);
 
     // Persistent rate limit
-    const { allowed } = await checkRateLimit(`quote:${ip}`, 10, 15 * 60 * 1000);
+    const { allowed } = await checkRateLimit(rateLimitKey, 10, 15 * 60 * 1000);
     if (!allowed) {
       return NextResponse.json(
         { error: "Too many quote requests. Please wait a few minutes." },
@@ -93,6 +95,16 @@ export async function POST(request: Request) {
       .gt("expires_at", new Date().toISOString());
 
     if (!pendingRows?.length) {
+      return NextResponse.json(
+        { error: "Upload batch not found or expired. Please re-upload your files." },
+        { status: 400 }
+      );
+    }
+
+    // #8: Verify the current requester is the original uploader
+    const batchOwnerIp = pendingRows[0].ip_address;
+    if (batchOwnerIp && batchOwnerIp !== ip) {
+      console.warn(`[quote] Batch ownership mismatch: batch IP=${batchOwnerIp}, request IP=${ip}`);
       return NextResponse.json(
         { error: "Upload batch not found or expired. Please re-upload your files." },
         { status: 400 }
@@ -211,6 +223,8 @@ export async function POST(request: Request) {
         gst_cents: quote.gstCents,
         total_cents: quote.totalCents,
         checkout_token: checkoutToken,
+        // #10: Store explicit delivery method instead of inferring from shipping_cents
+        delivery_method: contact.shippingMethod ?? "shipping",
         shipping_address_line1: contact.shippingAddressLine1,
         shipping_address_line2: contact.shippingAddressLine2 || null,
         shipping_city: contact.shippingCity,
@@ -263,9 +277,10 @@ export async function POST(request: Request) {
         layer_height_mm: settings.layerHeightMm,
         infill_percent: settings.infillPercent,
         quantity: settings.quantity,
+        // #10: Store remove_supports explicitly instead of encoding in shipping_method
+        remove_supports: settings.removeSupports,
         estimated_volume_cm3: parseFloat((volumeMm3 / 1000).toFixed(2)),
         estimated_print_time_minutes: itemQuote.estimatedPrintTimeMinutes,
-        shipping_method: "standard",
         line_total_cents: itemQuote.itemTotalCents,
       });
 

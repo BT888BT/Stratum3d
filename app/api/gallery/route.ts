@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createPublicReadClient } from "@/lib/supabase/public-read";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const supabase = createAdminClient();
+  const supabase = createPublicReadClient();
   const { data: images, error } = await supabase
     .from("gallery_images")
     .select("id, storage_path, caption, sort_order")

@@ -24,7 +24,7 @@ type MaterialConfig = {
 const MINIMUM_LINE_CENTS = parseInt(process.env.MINIMUM_LINE_CENTS ?? "100");
 
 const MATERIAL_COST_PER_GRAM_CENTS = 4; // $0.04/g = $40/kg
-const MACHINE_RATE_PER_HOUR_CENTS = 500; // $5.00/hr, all materials
+const MACHINE_RATE_PER_HOUR_CENTS = 200; // $2.00/hr, all materials
 
 const MATERIALS: Record<string, MaterialConfig> = {
   PLA:  { densityGPerCm3: 1.24, filamentCostPerGramCents: MATERIAL_COST_PER_GRAM_CENTS, machineRatePerHourCents: MACHINE_RATE_PER_HOUR_CENTS, setupFeeCents: 200, minimumLineCents: MINIMUM_LINE_CENTS },

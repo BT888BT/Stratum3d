@@ -129,6 +129,7 @@ export async function POST(request: Request) {
       settings: ReturnType<typeof fileItemSchema.parse>;
       volumeMm3: number;
       heightMm: number;
+      surfaceAreaMm2: number;
       actualSizeBytes: number;
     };
     const validatedItems: ValidatedItem[] = [];
@@ -181,12 +182,14 @@ export async function POST(request: Request) {
       // #1: Recalculate volume + height SERVER-SIDE — ignore any client-supplied values
       let volumeMm3: number;
       let heightMm: number;
+      let surfaceAreaMm2: number;
       try {
         const arrayBuf = await fileData.arrayBuffer();
         const buffer = Buffer.from(arrayBuf);
         const meshData = extractMeshDataFromBuffer(buffer, item.originalFilename);
         volumeMm3 = meshData.volumeMm3;
         heightMm = meshData.heightMm;
+        surfaceAreaMm2 = meshData.surfaceAreaMm2;
 
         if (!isFinite(volumeMm3) || volumeMm3 <= 0) {
           return NextResponse.json(
@@ -201,12 +204,12 @@ export async function POST(request: Request) {
         );
       }
 
-      validatedItems.push({ item, settings: settingsParsed.data, volumeMm3, heightMm, actualSizeBytes });
+      validatedItems.push({ item, settings: settingsParsed.data, volumeMm3, heightMm, surfaceAreaMm2, actualSizeBytes });
     }
 
     // ── Calculate quote from server-derived volumes ─────────
-    const itemQuotes = validatedItems.map(({ item, settings, volumeMm3, heightMm }) =>
-      calculateItemQuote(settings, volumeMm3, item.originalFilename, heightMm)
+    const itemQuotes = validatedItems.map(({ item, settings, volumeMm3, heightMm, surfaceAreaMm2 }) =>
+      calculateItemQuote(settings, volumeMm3, item.originalFilename, heightMm, surfaceAreaMm2)
     );
     const quote = sumQuote(itemQuotes, contact.shippingMethod ?? "shipping");
 

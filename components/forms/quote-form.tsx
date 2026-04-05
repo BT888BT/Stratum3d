@@ -35,6 +35,7 @@ type ItemResult = {
 type QuoteApiResponse = {
   orderId: string; checkoutToken: string; items: ItemResult[];
   subtotalCents: number; shippingCents: number; gstCents: number; totalCents: number;
+  displayPrintTimeMinutes: number;
 };
 
 function makeId() { return Math.random().toString(36).slice(2); }
@@ -452,8 +453,8 @@ export default function QuoteForm() {
                       onChange={() => { setShippingMethod("pickup"); setQuote(null); }}
                       style={{ accentColor: "var(--orange)", marginTop: 2 }} />
                     <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Parcel locker pickup — $2.50</p>
-                      <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Dropped to parcel locker at Stirling Central Shopping Centre, 478 Wanneroo Rd, Westminster WA 6061</p>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Parcel locker pickup — Australia Post</p>
+                      <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Flat rate $2.50 AUD — dropped to parcel locker at Stirling Central Shopping Centre, 478 Wanneroo Rd, Westminster WA 6061</p>
                     </div>
                   </label>
                 </div>
@@ -563,6 +564,11 @@ export default function QuoteForm() {
                 </div>
               ))}
 
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", borderRadius: 6, background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.15)" }}>
+                <span style={{ fontSize: 12, color: "var(--text-dim)" }}>Estimated print time</span>
+                <span className="font-mono" style={{ fontSize: 13, color: "var(--orange)" }}>{formatPrintTime(quote.displayPrintTimeMinutes)}</span>
+              </div>
+
               <hr className="divider" />
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -593,5 +599,12 @@ function Row({ label, value }: { label: string; value: string }) {
       <span style={{ fontSize: 13 }}>{value}</span>
     </div>
   );
+}
+
+function formatPrintTime(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m === 0 ? `${h} hr` : `${h} hr ${m} min`;
 }
 

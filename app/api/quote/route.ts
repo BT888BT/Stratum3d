@@ -243,9 +243,9 @@ export async function POST(request: Request) {
       console.log(`[quote:debug]   Support weight       : ${q.supportWeightGrams.toFixed(2)} g`);
       console.log(`[quote:debug]   Total weight/unit    : ${q.estimatedWeightGrams.toFixed(2)} g`);
       console.log(`[quote:debug]   ── Print time (per unit) ──`);
-      console.log(`[quote:debug]   Shell time           : ${Math.round((q.shellVolumeCm3 * 1000) / (11 * layerScale))} s  (11 mm³/s × ${layerScale.toFixed(2)} scale)`);
-      console.log(`[quote:debug]   Infill time          : ${Math.round((q.infillVolumeCm3 * 1000) / (20 * layerScale))} s  (20 mm³/s × ${layerScale.toFixed(2)} scale)`);
-      console.log(`[quote:debug]   Support time         : ${q.supportPrintTimeMinutes} min  (${Math.round((q.supportVolumeCm3 * 1000) / (20 * layerScale))} s at infill speed)`);
+      console.log(`[quote:debug]   Shell time           : ${Math.round((q.shellVolumeCm3 * 1000) / (7.7 * layerScale))} s  (7.7 mm³/s × ${layerScale.toFixed(2)} scale)`);
+      console.log(`[quote:debug]   Infill time          : ${Math.round((q.infillVolumeCm3 * 1000) / (14 * layerScale))} s  (14 mm³/s × ${layerScale.toFixed(2)} scale)`);
+      console.log(`[quote:debug]   Support time         : ${q.supportPrintTimeMinutes} min  (${Math.round((q.supportVolumeCm3 * 1000) / (14 * layerScale))} s at infill speed)`);
       console.log(`[quote:debug]   Layer overhead       : ${layerCount} layers × 3 s = ${Math.round(layerCount * 3 / 60)} min`);
       console.log(`[quote:debug]   Startup              : 3 min`);
       console.log(`[quote:debug]   Model time/unit      : ${q.modelPrintTimeMinutes} min`);

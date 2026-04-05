@@ -213,6 +213,36 @@ export async function POST(request: Request) {
     );
     const quote = sumQuote(itemQuotes, contact.shippingMethod ?? "shipping");
 
+    // ── Debug: mesh stats + full cost breakdown per item ────
+    for (let i = 0; i < validatedItems.length; i++) {
+      const { item, settings, volumeMm3, heightMm, surfaceAreaMm2, actualSizeBytes } = validatedItems[i];
+      const q = itemQuotes[i];
+      const solidVolCm3  = volumeMm3 / 1000;
+      const surfAreaCm2  = surfaceAreaMm2 / 100;
+      console.log(`\n[quote:debug] ── Item ${i + 1}: ${item.originalFilename} ──`);
+      console.log(`[quote:debug]   File size          : ${(actualSizeBytes / 1024).toFixed(1)} KB`);
+      console.log(`[quote:debug]   Solid volume       : ${solidVolCm3.toFixed(3)} cm³  (${volumeMm3.toFixed(1)} mm³)`);
+      console.log(`[quote:debug]   Height (Z-extent)  : ${heightMm.toFixed(2)} mm`);
+      console.log(`[quote:debug]   Surface area       : ${surfAreaCm2.toFixed(2)} cm²  (${surfaceAreaMm2.toFixed(1)} mm²)`);
+      console.log(`[quote:debug]   Settings           : material=${settings.material}  colour=${settings.colour}  qty=${settings.quantity}  layer=${settings.layerHeightMm}mm  infill=${settings.infillPercent}%  supports=${settings.removeSupports}`);
+      console.log(`[quote:debug]   --- Calculation ---`);
+      console.log(`[quote:debug]   Printed volume     : ${q.printedVolumeCm3.toFixed(3)} cm³  (solid × infill${settings.removeSupports ? " × 1.2 support factor" : ""})`);
+      console.log(`[quote:debug]   Weight/unit        : ${q.estimatedWeightGrams.toFixed(1)} g`);
+      console.log(`[quote:debug]   Print time/unit    : ${q.estimatedPrintTimeMinutes} min`);
+      console.log(`[quote:debug]   Material cost      : $${(q.materialCostCents / 100).toFixed(2)}  (${q.estimatedWeightGrams.toFixed(1)}g × $0.04/g × qty ${settings.quantity})`);
+      console.log(`[quote:debug]   Machine cost       : $${(q.machineCostCents / 100).toFixed(2)}  (${q.estimatedPrintTimeMinutes}min × $2.00/hr × qty ${settings.quantity})`);
+      console.log(`[quote:debug]   Setup fee          : $${(q.setupFeeCents / 100).toFixed(2)}`);
+      console.log(`[quote:debug]   Support removal    : $${(q.supportRemovalCents / 100).toFixed(2)}${settings.removeSupports ? "  (20% of material+machine)" : "  (n/a)"}`);
+      console.log(`[quote:debug]   Height surcharge   : $${(q.heightSurchargeCents / 100).toFixed(2)}  (${heightMm.toFixed(1)}mm → ${heightMm <= 50 ? "0" : heightMm <= 100 ? "5" : heightMm <= 200 ? "10" : "15"}%)`);
+      console.log(`[quote:debug]   SA surcharge       : $${(q.surfaceAreaSurchargeCents / 100).toFixed(2)}  (${surfAreaCm2.toFixed(1)}cm² → ${surfAreaCm2 <= 100 ? "0" : surfAreaCm2 <= 300 ? "5" : surfAreaCm2 <= 600 ? "10" : "15"}%)`);
+      console.log(`[quote:debug]   Item total         : $${(q.itemTotalCents / 100).toFixed(2)}`);
+    }
+    console.log(`\n[quote:debug] ── Order totals ──`);
+    console.log(`[quote:debug]   Subtotal  : $${(quote.subtotalCents / 100).toFixed(2)}`);
+    console.log(`[quote:debug]   Shipping  : $${(quote.shippingCents / 100).toFixed(2)}  (${contact.shippingMethod})`);
+    console.log(`[quote:debug]   GST (10%) : $${(quote.gstCents / 100).toFixed(2)}`);
+    console.log(`[quote:debug]   TOTAL     : $${(quote.totalCents / 100).toFixed(2)}\n`);
+
     // #6: Generate a one-time checkout token
     const checkoutToken = crypto.randomBytes(32).toString("hex");
 

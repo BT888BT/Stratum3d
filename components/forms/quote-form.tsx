@@ -454,7 +454,8 @@ export default function QuoteForm() {
                       style={{ accentColor: "var(--orange)", marginTop: 2 }} />
                     <div>
                       <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Parcel locker pickup — Australia Post</p>
-                      <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Flat rate $2.50 AUD — dropped to parcel locker at Stirling Central Shopping Centre, 478 Wanneroo Rd, Westminster WA 6061</p>
+                      <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Flat rate $2.50 AUD — dropped to parcel locker</p>
+                      <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Location: Stirling Central Shopping Centre, 478 Wanneroo Rd, Westminster WA 6061</p>
                     </div>
                   </label>
                 </div>
